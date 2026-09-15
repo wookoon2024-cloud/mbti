@@ -312,6 +312,9 @@ textarea {
 }
 
 .brand__text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -324,6 +327,28 @@ textarea {
 
 .brand__text h1 span {
   color: #059669;
+}
+
+.version-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  user-select: none;
+}
+
+.footer-version {
+  font-size: 10px;
+  padding: 1px 6px;
+  opacity: 0.85;
+  margin-left: 6px;
 }
 
 .topbar__tabs {

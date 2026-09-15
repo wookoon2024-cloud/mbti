@@ -428,6 +428,22 @@
       cursor: not-allowed;
     }
 
+    .version-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 9999px;
+      background: rgba(56, 139, 253, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 139, 253, 0.3);
+      margin-left: 8px;
+      vertical-align: middle;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+
     @media (max-width: 768px) {
       #dashboard-view { padding: 14px; }
       .bar-row { grid-template-columns: 80px 1fr 100px; }
@@ -440,7 +456,7 @@
   <!-- 1. 로그인 폼 -->
   <div id="auth-view">
     <div class="login-box">
-      <h2>🛡️ 관리자 로그인</h2>
+      <h2>🔐 관리자 로그인 <span class="version-tag">v1.2.0</span></h2>
       <p>온라인MBTI 접속 통계 및 시스템 현황</p>
       <form id="login-form">
         <div class="form-group">
@@ -462,7 +478,7 @@
     <!-- 상단 헤더 -->
     <header class="top-nav">
       <div class="nav-title">
-        <h1>📊 온라인MBTI 관리자 콘솔</h1>
+        <h1>📊 온라인MBTI 관리자 콘솔 <span class="version-tag">v1.2.0</span></h1>
         <div class="live-badge">
           <span class="live-dot"></span>
           <span>실시간 감시 중</span>

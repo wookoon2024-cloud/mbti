@@ -7,10 +7,14 @@ const REQUEST_TIMEOUT_MS = Number(process.env.ANALYZE_TIMEOUT_MS) || 120_000;
 const LOVE_SYSTEM_PROMPT = `당신은 카카오톡, DM, 메신저 대화를 스캔하여 두 사람의 관계와 상호 애정도/호감도를 정밀 분석하는 '톡스캐너 1:1 관계 분석기'입니다.
 
 [역할 및 지침]
-1. 대화에 등장하는 주 화자 2명(A와 B)을 파악합니다. 모바일 카카오톡 내보내기 헤더("...님과 카카오톡 대화", "저장한 날짜 : ...")나 시스템 안내문은 화자로 취급하지 마세요.
+1. 대화에 등장하는 주 화자 2명(A와 B)을 파악합니다. 모바일 카카오톡 헤더나 시스템 안내문은 화자로 취급하지 마세요.
 2. 대화의 말투, 답장 속도, 이모티콘 사용, 챙겨줌, 질투, 애정 표현, 주도권 등을 분석하여 각자의 애정도/호감도(0~100점)를 산출합니다.
-3. 대화 속 날짜/타임스탬프의 흐름(2026. 3. 5., 2026년 3월 5일 등 다양한 모바일 타임스탬프)을 분석하여 일별(Daily) 애정도 추이 데이터를 추출합니다.
-4. 반드시 유효한 단일 JSON 객체로만 응답하세요. 백틱(markdown fences) 없이 순수 JSON만 출력해야 합니다.
+3. 시계열 추이 데이터(timeline, monthly, yearly)는 텍스트를 장황하게 나열하지 말고, 관계의 시작·변곡점·최근 기류를 대표하는 핵심 지점 위주로 컴팩트하게 추출하세요:
+   - timeline: 대표적인 날짜 3~5개만 간결하게 추출 (최대 5개, 필수)
+   - monthly: 주요 월 2~3개만 추출
+   - yearly: 연도별 1~2개
+4. traits, flutterPoints, cautionPoints, scouterVerdict 모두 군더더기 없이 핵심만 명쾌하고 위트있게 작성하세요.
+5. 반드시 백틱(markdown fences) 없이 순수 단일 JSON 객체로만 응답하세요.
 
 [출력 JSON 스키마]
 {
@@ -26,14 +30,14 @@ const LOVE_SYSTEM_PROMPT = `당신은 카카오톡, DM, 메신저 대화를 스�
     "score": 85,
     "style": "다정헌신형 / 츤데레 직진형 / 댕댕이형 등",
     "traits": ["선톡 장인", "칼답러", "약속 주도"],
-    "favoriteQuote": "대화 중 가장 애정이 드러난 대표 대사"
+    "favoriteQuote": "가장 애정이 드러난 대표 대사"
   },
   "personB": {
     "name": "화자 B 이름",
     "score": 92,
     "style": "수줍은 반응형 / 겉차속따형 등",
     "traits": ["은근한 챙김", "감정 숨김", "약속 기대"],
-    "favoriteQuote": "대화 중 가장 애정이 드러난 대표 대사"
+    "favoriteQuote": "가장 애정이 드러난 대표 대사"
   },
   "timeline": [
     {
@@ -42,7 +46,7 @@ const LOVE_SYSTEM_PROMPT = `당신은 카카오톡, DM, 메신저 대화를 스�
       "scoreB": 85,
       "messageCount": 14,
       "event": "첫 데이트 약속 잡은 날",
-      "note": "지훈의 적극적인 카페 제안에 수민이 흔쾌히 응함"
+      "note": "지훈의 적극적인 제안에 수민이 흔쾌히 응함"
     }
   ],
   "monthly": [
@@ -61,9 +65,9 @@ const LOVE_SYSTEM_PROMPT = `당신은 카카오톡, DM, 메신저 대화를 스�
       "summary": "설렘 지수 최고조"
     }
   ],
-  "flutterPoints": ["대화 중 가장 설렜던 모먼트나 호감 포인트 1~3개"],
-  "cautionPoints": ["갈등 예방을 위해 주의할 점 또는 서운할 수 있는 포인트 1~2개"],
-  "scouterVerdict": "톡스캐너 관계 분석 총평 (위트있고 통찰력 있는 AI 종합 분석 멘트)"
+  "flutterPoints": ["대화 중 가장 설렜던 모먼트나 호감 포인트 1~2개"],
+  "cautionPoints": ["갈등 예방을 위해 서운할 수 있는 주의 포인트 1개"],
+  "scouterVerdict": "톡스캐너 관계 분석 총평 (2~3문장의 명쾌하고 위트있는 총평)"
 }
 `;
 
@@ -79,26 +83,67 @@ function extractJson(raw) {
   return JSON.parse(candidate);
 }
 
-export function sampleConversationForLove(text, maxChars = 20_000) {
+export function sampleConversationForLove(text, maxChars = 12_000) {
   if (!text || text.length <= maxChars) return text;
 
-  const lines = text.split(/\r?\n/);
-  if (lines.length <= 100) return text.slice(0, maxChars);
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length <= 60) return text.slice(0, maxChars);
 
-  const headCount = Math.floor(lines.length * 0.3);
-  const tailCount = Math.floor(lines.length * 0.45);
-  const midCount = Math.floor(lines.length * 0.25);
-  const midStart = Math.floor((lines.length - midCount) / 2);
+  // 초반 25%(만남/호칭 형성), 중반 35%(관계 진전/감정 교류), 최근 40%(현재 애정도/최신 기류)
+  const headBudget = Math.floor(maxChars * 0.25);
+  const midBudget = Math.floor(maxChars * 0.35);
+  const tailBudget = Math.floor(maxChars * 0.40);
 
-  const sampledLines = [
-    ...lines.slice(0, headCount),
+  // 1. Head lines
+  let headText = '';
+  let headIndex = 0;
+  while (headIndex < lines.length && (headText.length + lines[headIndex].length + 1) <= headBudget) {
+    headText += (headText ? '\n' : '') + lines[headIndex];
+    headIndex++;
+  }
+
+  // 2. Tail lines (backwards)
+  const tailLines = [];
+  let tailLength = 0;
+  let tailIndex = lines.length - 1;
+  while (tailIndex > headIndex && (tailLength + lines[tailIndex].length + 1) <= tailBudget) {
+    tailLines.unshift(lines[tailIndex]);
+    tailLength += lines[tailIndex].length + 1;
+    tailIndex--;
+  }
+
+  // 3. Mid lines (centered)
+  const midCenter = Math.floor((headIndex + tailIndex) / 2);
+  const midLines = [];
+  let midLength = 0;
+  let offset = 0;
+  while (midLength < midBudget) {
+    const left = midCenter - offset;
+    const right = midCenter + offset + 1;
+    let added = false;
+    if (left > headIndex && left < tailIndex && (midLength + lines[left].length + 1) <= midBudget) {
+      midLines.unshift(lines[left]);
+      midLength += lines[left].length + 1;
+      added = true;
+    }
+    if (right < tailIndex && right > headIndex && (midLength + lines[right].length + 1) <= midBudget) {
+      midLines.push(lines[right]);
+      midLength += lines[right].length + 1;
+      added = true;
+    }
+    if (!added) break;
+    offset++;
+  }
+
+  const result = [
+    headText,
     '\n... [중간 대화 생략 및 시계열 보존] ...\n',
-    ...lines.slice(midStart, midStart + midCount),
+    midLines.join('\n'),
     '\n... [중간 대화 생략 및 시계열 보존] ...\n',
-    ...lines.slice(-tailCount),
-  ];
+    tailLines.join('\n'),
+  ].join('\n');
 
-  return sampledLines.join('\n').slice(0, maxChars);
+  return result.slice(0, maxChars);
 }
 
 export async function analyzeLove({ conversation, apiKey, model, wire }) {
@@ -107,8 +152,8 @@ export async function analyzeLove({ conversation, apiKey, model, wire }) {
     throw new ApiError('대화 내용이 너무 짧습니다. 최소 몇 줄 이상의 대화를 입력해 주세요.', 400, 'too_short');
   }
 
-  // 6만자 이상 대용량 대화도 5~8초 내에 타임아웃 없이 정밀 분석되도록 시계열 보존 샘플링
-  const sampledText = sampleConversationForLove(text, 20_000);
+  // 6만자 이상 대용량 대화도 3~5초 내에 초고속 정밀 분석되도록 핵심 시계열 스마트 샘플링 (12,000자)
+  const sampledText = sampleConversationForLove(text, 12_000);
 
   const prompt = `다음 대화 내용을 정밀 분석하여 두 사람의 상호 애정도와 시계열 추이를 측정해 주세요:\n\n` +
     sampledText;
@@ -124,6 +169,8 @@ export async function analyzeLove({ conversation, apiKey, model, wire }) {
       wire,
       system: LOVE_SYSTEM_PROMPT,
       user: prompt,
+      temperature: 0.3,
+      maxTokens: 2048,
       signal: controller.signal,
     });
   } catch (err) {

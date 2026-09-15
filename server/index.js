@@ -20,6 +20,8 @@ const PORT = Number(process.env.PORT) || 3000;
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const TRUST_PROXY = /^(1|true|yes)$/i.test(process.env.TRUST_PROXY || '') || Boolean(process.env.VERCEL);
 
+export const APP_VERSION = '1.2.0';
+
 const limiter = createLimiter();
 
 const MIME = {
@@ -237,6 +239,10 @@ export async function handleRequest(req, res) {
 
   try {
     trackVisit(ip, pathname, req.headers['user-agent'] || '');
+
+    if (req.method === 'GET' && pathname === '/api/version') {
+      return sendJson(res, 200, { ok: true, version: APP_VERSION, app: '톡스캐너' });
+    }
 
     if (req.method === 'POST' && pathname === '/api/admin/login') {
       const body = await readBody(req);
