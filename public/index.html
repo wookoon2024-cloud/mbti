@@ -26,23 +26,59 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand__mark" aria-hidden="true">
-          <svg viewBox="0 0 36 36" width="30" height="30" fill="none">
+          <svg viewBox="0 0 44 44" width="28" height="28" fill="none" focusable="false">
             <defs>
-              <linearGradient id="brandGrad" x1="2" y1="2" x2="34" y2="34" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#f25b2a" />
-                <stop offset="100%" stop-color="#c2410c" />
+              <linearGradient id="scouterLens" x1="14" y1="12" x2="38" y2="30" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#7aff8f" stop-opacity="0.95" />
+                <stop offset="50%" stop-color="#00e676" stop-opacity="0.88" />
+                <stop offset="100%" stop-color="#00ab55" stop-opacity="0.95" />
               </linearGradient>
-              <linearGradient id="heartGrad" x1="14" y1="12" x2="32" y2="30" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#f43f5e" />
-                <stop offset="100%" stop-color="#fb7185" />
+              <linearGradient id="scouterBody" x1="6" y1="14" x2="19" y2="29" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f8fafc" />
+                <stop offset="50%" stop-color="#e2e8f0" />
+                <stop offset="100%" stop-color="#94a3b8" />
               </linearGradient>
             </defs>
-            <rect width="36" height="36" rx="9" fill="url(#brandGrad)" />
-            <path d="M10 18.5C10 13.8 13.6 10 18 10C22.4 10 26 13.8 26 18.5C26 23.2 22.4 27 18 27C16.6 27 15.3 26.6 14.2 25.9L10.5 27L11.4 23.8C10.5 22.3 10 20.5 10 18.5Z" fill="#ffffff" />
-            <path d="M21 16C21 13.8 22.8 12 25 12C27.2 12 29 13.8 29 16C29 18.5 26.8 20.5 25 22.2C23.2 20.5 21 18.5 21 16Z" fill="url(#heartGrad)" />
-            <circle cx="15" cy="18.5" r="1.1" fill="#f25b2a" />
-            <circle cx="18" cy="18.5" r="1.1" fill="#f25b2a" />
-            <circle cx="21" cy="18.5" r="1.1" fill="#f25b2a" />
+            <path
+              d="M10.5 21 C9.5 9.5, 23 4, 33 6.8 C34 7.1, 34 8.2, 33 8.6 C24.5 6.2, 12.8 11.5, 13.5 21 Z"
+              fill="#475569"
+            />
+            <path
+              d="M31.5 6.5 C34 7, 34.5 8.5, 33 9"
+              stroke="#64748b"
+              stroke-width="1.2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M17.5 16.2 L34.2 13.6 C37.8 13 40.5 15.2 40.2 19 L39.6 23.5 C39 27.5, 35.5 30.2, 31 29.8 L18 27.5 Z"
+              fill="url(#scouterLens)"
+              stroke="#a7f3d0"
+              stroke-width="0.8"
+            />
+            <circle cx="32" cy="21.5" r="3.2" stroke="#ffffff" stroke-opacity="0.8" stroke-width="0.75" stroke-dasharray="2 1.2" />
+            <circle cx="32" cy="21.5" r="1.1" fill="#ffffff" fill-opacity="0.95" />
+            <line x1="22.5" y1="18.5" x2="26" y2="18.5" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
+            <line x1="22.5" y1="21.2" x2="27" y2="21.2" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
+            <line x1="22.5" y1="24" x2="25" y2="24" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
+            <path
+              d="M18.8 17.5 L34.5 15 C37 14.6 38.5 15.6 38.6 17.5"
+              stroke="#ffffff"
+              stroke-width="1"
+              stroke-linecap="round"
+            />
+            <path
+              d="M6.5 22 C6 16.5, 11 13.8, 16 14.2 L17.5 29 C11.5 29.8, 6.8 26.8, 6.5 22 Z"
+              fill="#94a3b8"
+            />
+            <path
+              d="M7.8 22 C7.5 17.2, 12 14.8, 17 15.2 L18.5 28.5 C13 29, 8 26.5, 7.8 22 Z"
+              fill="url(#scouterBody)"
+            />
+            <circle cx="12.5" cy="22" r="3.2" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.6" />
+            <circle cx="12.5" cy="22" r="1.3" fill="#64748b" />
+            <rect x="16.5" y="16.5" width="3.2" height="10" rx="1" fill="#1e293b" />
+            <rect x="17.2" y="19.2" width="2" height="4.2" rx="0.6" fill="#ef4444" />
+            <rect x="17.6" y="19.8" width="1.2" height="1.5" rx="0.3" fill="#fca5a5" />
           </svg>
         </span>
         <div class="brand__text">

@@ -293,18 +293,18 @@ textarea {
 .brand__mark {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   flex: none;
   border-radius: 9px;
-  background: transparent;
-  border: none;
-  box-shadow: 0 2px 8px rgba(242, 91, 42, 0.25);
+  background: #111827;
+  border: 1px solid #1e293b;
+  box-shadow: 0 2px 10px rgba(0, 230, 118, 0.28);
   transition: transform 0.2s var(--ease);
 }
 
 .brand:hover .brand__mark {
-  transform: scale(1.05);
+  transform: scale(1.06);
 }
 
 .brand__mark svg {
@@ -323,7 +323,7 @@ textarea {
 }
 
 .brand__text h1 span {
-  color: var(--accent-ink);
+  color: #059669;
 }
 
 .topbar__tabs {
