@@ -12,6 +12,7 @@ import { analyzeLove } from './analyze-love.js';
 import { ApiError } from './commandcode.js';
 import { MODELS, DEFAULT_MODEL, resolveModel } from './models.js';
 import { createLimiter, clientIp, COST, LIMITS } from './limits.js';
+import { trackVisit, trackEvent, authenticateAdmin, verifyAdmin, revokeAdmin, getAnalyticsStats } from './analytics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -143,6 +144,7 @@ async function handleSpeakers(req, res) {
 
     result.meta.model = modelInfo.id;
     result.meta.modelName = modelInfo.name;
+    trackEvent(ip, 'speakers', `등장인물 추출 (${result.speakers?.length || 0}명)`);
     sendJson(res, 200, withUsage(result, ip, isCustomKey));
   } finally {
     lease.release();
@@ -166,6 +168,7 @@ async function handlePerson(req, res) {
 
     result.meta.model = modelInfo.id;
     result.meta.modelName = modelInfo.name;
+    trackEvent(ip, 'mbti', `${body.person} MBTI 판정 (${result.mbti?.type || '성공'})`);
     sendJson(res, 200, withUsage(result, ip, isCustomKey));
   } finally {
     lease.release();
@@ -188,6 +191,7 @@ async function handleLove(req, res) {
 
     result.meta.model = modelInfo.id;
     result.meta.modelName = modelInfo.name;
+    trackEvent(ip, 'love', `1:1 애정 분석 (${result.loveAnalysis?.summary?.chemistryScore || 0}점)`);
     sendJson(res, 200, withUsage(result, ip, isCustomKey));
   } finally {
     lease.release();
@@ -195,7 +199,10 @@ async function handleLove(req, res) {
 }
 
 async function serveStatic(req, res, pathname) {
-  const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  let relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  if (relative === 'admin' || relative === 'admin/') {
+    relative = 'admin.html';
+  }
   const filePath = path.join(PUBLIC_DIR, relative);
 
   if (!filePath.startsWith(PUBLIC_DIR)) {
@@ -220,8 +227,34 @@ async function serveStatic(req, res, pathname) {
 export async function handleRequest(req, res) {
   const rawUrl = req.headers['x-matched-path'] || req.url;
   const { pathname } = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
+  const ip = requestIp(req);
 
   try {
+    trackVisit(ip, pathname, req.headers['user-agent'] || '');
+
+    if (req.method === 'POST' && pathname === '/api/admin/login') {
+      const body = await readBody(req);
+      const token = authenticateAdmin(body?.id, body?.pw);
+      if (!token) {
+        return sendJson(res, 401, { error: { message: '아이디 또는 비밀번호가 올바르지 않습니다.' } });
+      }
+      res.setHeader('Set-Cookie', `admin_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+      return sendJson(res, 200, { ok: true, token });
+    }
+
+    if (req.method === 'GET' && pathname === '/api/admin/stats') {
+      if (!verifyAdmin(req)) {
+        return sendJson(res, 401, { error: { message: '관리자 로그인이 필요합니다.' } });
+      }
+      return sendJson(res, 200, getAnalyticsStats());
+    }
+
+    if (req.method === 'POST' && pathname === '/api/admin/logout') {
+      revokeAdmin(req);
+      res.setHeader('Set-Cookie', 'admin_token=; Path=/; HttpOnly; Max-Age=0');
+      return sendJson(res, 200, { ok: true });
+    }
+
     if (req.method === 'GET' && pathname === '/api/usage') {
       return sendJson(res, 200, {
         usage: limiter.usage(requestIp(req)),

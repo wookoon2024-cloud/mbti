@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>온라인MBTI — 관리자 대시보드</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --card-border: #30363d;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --text-muted: #8b949e;
+      --accent: #238636;
+      --accent-hover: #2ea043;
+      --cyan: #388bfd;
+      --magenta: #f778ba;
+      --lime: #3fb950;
+      --orange: #d29922;
+      --danger: #f85149;
+      --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Auth Modal / Container */
+    #auth-view {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 24px;
+    }
+    .login-box {
+      width: 100%;
+      max-width: 380px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 32px 28px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .login-box h2 {
+      color: var(--text-bright);
+      font-size: 20px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .login-box p {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-control {
+      width: 100%;
+      background: #090d13;
+      border: 1px solid var(--card-border);
+      color: var(--text-bright);
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+    }
+    .form-control:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px rgba(56, 139, 253, 0.2);
+    }
+    .btn-login {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 11px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+    .btn-login:hover {
+      background: var(--accent-hover);
+    }
+    .login-err {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+      text-align: center;
+    }
+
+    /* Dashboard View */
+    #dashboard-view {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    /* Top Nav */
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .nav-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-title h1 {
+      font-size: 20px;
+      color: var(--text-bright);
+      font-weight: 700;
+    }
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--lime);
+      background: rgba(63, 185, 80, 0.15);
+      padding: 3px 9px;
+      border-radius: 12px;
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--lime);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-action {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: 0.2s;
+    }
+    .btn-action:hover {
+      background: #21262d;
+      color: var(--text-bright);
+      border-color: #8b949e;
+    }
+
+    /* Stat Grid */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .stat-card.active-users::before { background: var(--lime); }
+    .stat-card.today-uv::before { background: var(--cyan); }
+    .stat-card.today-mbti::before { background: var(--orange); }
+    .stat-card.today-love::before { background: var(--magenta); }
+    .stat-card.total-uv::before { background: #8957e5; }
+
+    .stat-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-bright);
+      line-height: 1.1;
+    }
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Section Cards */
+    .dashboard-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .panel-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-bright);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Period Tabs */
+    .period-tabs {
+      display: flex;
+      background: #090d13;
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .tab-btn.active {
+      background: #21262d;
+      color: var(--text-bright);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    /* Charts & Visual Bars */
+    .chart-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 10px;
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 100px 1fr 140px;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+    }
+    .bar-date {
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .bar-track {
+      background: #090d13;
+      height: 20px;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .bar-fill-uv {
+      background: var(--cyan);
+      height: 100%;
+      min-width: 3px;
+      transition: width 0.4s ease;
+    }
+    .bar-fill-mbti {
+      background: var(--orange);
+      height: 100%;
+      min-width: 2px;
+      transition: width 0.4s ease;
+    }
+    .bar-fill-love {
+      background: var(--magenta);
+      height: 100%;
+      min-width: 2px;
+      transition: width 0.4s ease;
+    }
+    .bar-stats {
+      color: var(--text-bright);
+      font-weight: 600;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    th {
+      background: #0d1117;
+      color: var(--text-muted);
+      padding: 10px 14px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--card-border);
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      color: var(--text);
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .badge-tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tag-mbti { background: rgba(210, 153, 34, 0.2); color: var(--orange); }
+    .tag-love { background: rgba(247, 120, 186, 0.2); color: var(--magenta); }
+    .tag-visit { background: rgba(56, 139, 253, 0.2); color: var(--cyan); }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 768px) {
+      #dashboard-view { padding: 14px; }
+      .bar-row { grid-template-columns: 80px 1fr 100px; }
+      .stat-value { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 로그인 폼 -->
+  <div id="auth-view">
+    <div class="login-box">
+      <h2>🛡️ 관리자 로그인</h2>
+      <p>온라인MBTI 접속 통계 및 시스템 현황</p>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="admin-id">아이디</label>
+          <input type="text" id="admin-id" class="form-control" placeholder="admin" value="admin" required autofocus />
+        </div>
+        <div class="form-group">
+          <label for="admin-pw">비밀번호</label>
+          <input type="password" id="admin-pw" class="form-control" placeholder="비밀번호 입력" value="cail891" required />
+        </div>
+        <button type="submit" class="btn-login" id="btn-submit">로그인</button>
+        <div class="login-err" id="login-err"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. 대시보드 화면 -->
+  <div id="dashboard-view">
+    <!-- 상단 헤더 -->
+    <header class="top-nav">
+      <div class="nav-title">
+        <h1>📊 온라인MBTI 관리자 콘솔</h1>
+        <div class="live-badge">
+          <span class="live-dot"></span>
+          <span>실시간 감시 중</span>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <button class="btn-action" id="btn-refresh">🔄 새로고침</button>
+        <a href="/" target="_blank" class="btn-action">🌐 서비스 바로가기</a>
+        <button class="btn-action" id="btn-logout">로그아웃</button>
+      </div>
+    </header>
+
+    <!-- 핵심 지표 요약 카드 -->
+    <div class="stat-grid">
+      <div class="stat-card active-users">
+        <div class="stat-label">
+          <span>현재 접속자 (최근 5분)</span>
+          <span>🟢</span>
+        </div>
+        <div class="stat-value" id="stat-active">0명</div>
+        <div class="stat-sub">실시간 활동 중인 세션 수</div>
+      </div>
+      <div class="stat-card today-uv">
+        <div class="stat-label">
+          <span>오늘 방문자 (UV)</span>
+          <span>👥</span>
+        </div>
+        <div class="stat-value" id="stat-today-uv">0명</div>
+        <div class="stat-sub" id="stat-today-pv">페이지뷰: 0회</div>
+      </div>
+      <div class="stat-card today-mbti">
+        <div class="stat-label">
+          <span>오늘 MBTI 분석</span>
+          <span>🔍</span>
+        </div>
+        <div class="stat-value" id="stat-today-mbti">0회</div>
+        <div class="stat-sub">단톡방 MBTI 판정 실행</div>
+      </div>
+      <div class="stat-card today-love">
+        <div class="stat-label">
+          <span>오늘 1:1 애정 분석</span>
+          <span>❤️</span>
+        </div>
+        <div class="stat-value" id="stat-today-love">0회</div>
+        <div class="stat-sub">상대방 호감도/속마음 분석</div>
+      </div>
+      <div class="stat-card total-uv">
+        <div class="stat-label">
+          <span>누적 전체 방문자</span>
+          <span>📈</span>
+        </div>
+        <div class="stat-value" id="stat-total-uv">0명</div>
+        <div class="stat-sub" id="stat-total-pv">누적 페이지뷰: 0회</div>
+      </div>
+    </div>
+
+    <!-- 실시간 접속 세션 목록 -->
+    <div class="dashboard-panel">
+      <div class="panel-header">
+        <div class="panel-title">🟢 실시간 접속자 목록 (<span id="active-count-badge">0</span>명)</div>
+        <span style="font-size: 12px; color: var(--text-muted);">5분 이내 활동 세션 (자동 갱신)</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>접속 IP</th>
+              <th>최근 활동</th>
+              <th>최근 경로/기능</th>
+              <th>접속 환경 (User-Agent)</th>
+            </tr>
+          </thead>
+          <tbody id="active-sessions-tbody">
+            <tr><td colspan="4" class="empty-state">현재 접속 중인 사용자가 없습니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 기간별 통계 패널 (일별/주간/월별) -->
+    <div class="dashboard-panel">
+      <div class="panel-header">
+        <div class="panel-title">📈 기간별 접속 및 사용량 통계</div>
+        <div class="period-tabs">
+          <button class="tab-btn active" data-period="daily">일별 (최근 14일)</button>
+          <button class="tab-btn" data-period="weekly">주간 (최근 8주)</button>
+          <button class="tab-btn" data-period="monthly">월별 (최근 12개월)</button>
+        </div>
+      </div>
+
+      <!-- 차트 뷰 -->
+      <div style="font-size: 12px; color: var(--text-muted); display: flex; gap: 16px; margin-bottom: 4px;">
+        <span><span style="color: var(--cyan);">■</span> 방문자(UV)</span>
+        <span><span style="color: var(--orange);">■</span> MBTI분석</span>
+        <span><span style="color: var(--magenta);">■</span> 애정분석</span>
+      </div>
+      <div class="chart-container" id="chart-bars"></div>
+
+      <!-- 상세 테이블 -->
+      <div class="table-wrap" style="margin-top: 10px;">
+        <table>
+          <thead>
+            <tr>
+              <th id="period-col-title">날짜</th>
+              <th>순 방문자 (UV)</th>
+              <th>페이지뷰 (PV)</th>
+              <th>MBTI 판정</th>
+              <th>애정 분석</th>
+              <th>API 총 요청</th>
+            </tr>
+          </thead>
+          <tbody id="period-stats-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 최근 이벤트 활동 피드 -->
+    <div class="dashboard-panel">
+      <div class="panel-header">
+        <div class="panel-title">🕒 실시간 최근 활동 로그 (최근 50건)</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 140px;">시각</th>
+              <th style="width: 130px;">IP</th>
+              <th style="width: 100px;">유형</th>
+              <th>상세 내용</th>
+            </tr>
+          </thead>
+          <tbody id="recent-events-tbody">
+            <tr><td colspan="4" class="empty-state">기록된 최근 활동이 없습니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let authToken = sessionStorage.getItem('admin_token') || '';
+    let currentPeriod = 'daily';
+    let cachedStats = null;
+    let refreshTimer = null;
+
+    const authView = document.getElementById('auth-view');
+    const dashboardView = document.getElementById('dashboard-view');
+    const loginForm = document.getElementById('login-form');
+    const loginErr = document.getElementById('login-err');
+
+    function checkAuth() {
+      if (authToken) {
+        showDashboard();
+      } else {
+        showLogin();
+      }
+    }
+
+    function showLogin() {
+      authView.style.display = 'flex';
+      dashboardView.style.display = 'none';
+      if (refreshTimer) clearInterval(refreshTimer);
+    }
+
+    function showDashboard() {
+      authView.style.display = 'none';
+      dashboardView.style.display = 'flex';
+      fetchStats();
+      if (!refreshTimer) {
+        refreshTimer = setInterval(fetchStats, 5000); // 5초 주기 실시간 자동 갱신
+      }
+    }
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginErr.style.display = 'none';
+      const id = document.getElementById('admin-id').value.trim();
+      const pw = document.getElementById('admin-pw').value.trim();
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, pw }),
+        });
+        const data = await res.json();
+        if (res.ok && data.token) {
+          authToken = data.token;
+          sessionStorage.setItem('admin_token', authToken);
+          showDashboard();
+        } else {
+          loginErr.textContent = data.error?.message || '로그인에 실패했습니다.';
+          loginErr.style.display = 'block';
+        }
+      } catch (err) {
+        loginErr.textContent = '서버 통신 실패: ' + err.message;
+        loginErr.style.display = 'block';
+      }
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      try {
+        await fetch('/api/admin/logout', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + authToken },
+        });
+      } catch {}
+      authToken = '';
+      sessionStorage.removeItem('admin_token');
+      showLogin();
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      fetchStats();
+    });
+
+    async function fetchStats() {
+      if (!authToken) return;
+      try {
+        const res = await fetch('/api/admin/stats', {
+          headers: { Authorization: 'Bearer ' + authToken },
+        });
+        if (res.status === 401) {
+          authToken = '';
+          sessionStorage.removeItem('admin_token');
+          showLogin();
+          return;
+        }
+        const data = await res.json();
+        cachedStats = data;
+        renderDashboard(data);
+      } catch (err) {
+        console.error('Failed to fetch admin stats:', err);
+      }
+    }
+
+    function renderDashboard(data) {
+      if (!data) return;
+
+      // 1. 요약 카드 렌더링
+      document.getElementById('stat-active').textContent = data.activeUsersCount + '명';
+      document.getElementById('active-count-badge').textContent = data.activeUsersCount;
+
+      const sum = data.summary || {};
+      document.getElementById('stat-today-uv').textContent = (sum.todayUv || 0) + '명';
+      document.getElementById('stat-today-pv').textContent = '페이지뷰: ' + (sum.todayPv || 0) + '회';
+      document.getElementById('stat-today-mbti').textContent = (sum.todayMbti || 0) + '회';
+      document.getElementById('stat-today-love').textContent = (sum.todayLove || 0) + '회';
+      document.getElementById('stat-total-uv').textContent = (sum.totalUv || 0) + '명';
+      document.getElementById('stat-total-pv').textContent = '누적 페이지뷰: ' + (sum.totalPv || 0) + '회';
+
+      // 2. 현재 접속 세션 목록
+      const sessionTbody = document.getElementById('active-sessions-tbody');
+      if (data.activeSessions && data.activeSessions.length > 0) {
+        sessionTbody.innerHTML = data.activeSessions.map(s => `
+          <tr>
+            <td style="font-family: monospace; font-weight: 600; color: var(--text-bright);">${escapeHtml(s.ip)}</td>
+            <td><span style="color: var(--lime);">${s.lastSeenSec}초 전</span></td>
+            <td><code>${escapeHtml(s.path || '/')}</code></td>
+            <td style="font-size: 11px; color: var(--text-muted); max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(s.userAgent)}">${escapeHtml(s.userAgent || '알 수 없음')}</td>
+          </tr>
+        `).join('');
+      } else {
+        sessionTbody.innerHTML = '<tr><td colspan="4" class="empty-state">현재 접속 중인 사용자가 없습니다.</td></tr>';
+      }
+
+      // 3. 기간별 차트 & 테이블 렌더링
+      renderPeriodView();
+
+      // 4. 최근 활동 피드
+      const eventsTbody = document.getElementById('recent-events-tbody');
+      if (data.recentEvents && data.recentEvents.length > 0) {
+        eventsTbody.innerHTML = data.recentEvents.map(e => {
+          let tagClass = 'tag-visit';
+          let tagName = '방문';
+          if (e.type === 'mbti') { tagClass = 'tag-mbti'; tagName = 'MBTI분석'; }
+          else if (e.type === 'love') { tagClass = 'tag-love'; tagName = '애정분석'; }
+
+          const timeStr = new Date(e.time).toLocaleTimeString('ko-KR', { hour12: false });
+          return `
+            <tr>
+              <td style="color: var(--text-muted); font-size: 12px;">${timeStr}</td>
+              <td style="font-family: monospace;">${escapeHtml(e.ip)}</td>
+              <td><span class="badge-tag ${tagClass}">${tagName}</span></td>
+              <td>${escapeHtml(e.detail || '-')}</td>
+            </tr>
+          `;
+        }).join('');
+      } else {
+        eventsTbody.innerHTML = '<tr><td colspan="4" class="empty-state">기록된 최근 활동이 없습니다.</td></tr>';
+      }
+    }
+
+    function renderPeriodView() {
+      if (!cachedStats) return;
+      const list = cachedStats[currentPeriod] || [];
+      const colTitle = document.getElementById('period-col-title');
+      colTitle.textContent = currentPeriod === 'daily' ? '날짜' : currentPeriod === 'weekly' ? '주차' : '월';
+
+      const maxUv = Math.max(1, ...list.map(x => x.uv || 0));
+      const maxAction = Math.max(1, ...list.map(x => (x.mbti || 0) + (x.love || 0)));
+
+      // 차트 렌더링
+      const chartContainer = document.getElementById('chart-bars');
+      if (list.length === 0) {
+        chartContainer.innerHTML = '<div class="empty-state">해당 기간 데이터가 없습니다.</div>';
+      } else {
+        chartContainer.innerHTML = list.map(item => {
+          const label = item.date || item.week || item.month;
+          const uvPct = Math.min(100, Math.round(((item.uv || 0) / maxUv) * 60));
+          const mbtiPct = Math.min(40, Math.round(((item.mbti || 0) / maxAction) * 20));
+          const lovePct = Math.min(40, Math.round(((item.love || 0) / maxAction) * 20));
+
+          return `
+            <div class="bar-row">
+              <span class="bar-date">${label}</span>
+              <div class="bar-track">
+                <div class="bar-fill-uv" style="width: ${uvPct}%;" title="UV: ${item.uv}"></div>
+                <div class="bar-fill-mbti" style="width: ${mbtiPct}%;" title="MBTI: ${item.mbti}"></div>
+                <div class="bar-fill-love" style="width: ${lovePct}%;" title="애정: ${item.love}"></div>
+              </div>
+              <span class="bar-stats">UV ${item.uv} · 분석 ${(item.mbti || 0) + (item.love || 0)}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // 테이블 렌더링
+      const tbody = document.getElementById('period-stats-tbody');
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">데이터가 없습니다.</td></tr>';
+      } else {
+        tbody.innerHTML = list.slice().reverse().map(item => {
+          const label = item.date || item.week || item.month;
+          return `
+            <tr>
+              <td style="font-weight: 600; color: var(--text-bright);">${label}</td>
+              <td style="color: var(--cyan); font-weight: 600;">${item.uv}명</td>
+              <td>${item.pv}회</td>
+              <td style="color: var(--orange); font-weight: 600;">${item.mbti}회</td>
+              <td style="color: var(--magenta); font-weight: 600;">${item.love}회</td>
+              <td>${item.apiTotal}건</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    // 탭 전환 이벤트
+    document.querySelectorAll('.period-tabs .tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.period-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPeriod = btn.dataset.period;
+        renderPeriodView();
+      });
+    });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    checkAuth();
+  </script>
+</body>
+</html>
