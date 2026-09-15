@@ -133,6 +133,7 @@ const state = {
   loveData: null,
   loveChartFilter: 'daily',
   customApiKey: '',
+  isSharedView: false,
   hasCustomKey: false,
 };
 
@@ -564,6 +565,8 @@ function renderEmpty() {
 
 async function findSpeakers() {
   if (state.busy) return;
+  state.isSharedView = false;
+  window.history.replaceState({}, '', window.location.pathname);
 
   if (!state.hasCustomKey) {
     if (state.quotaExhausted) {
@@ -1216,48 +1219,53 @@ function activateTab(index) {
 function resultsBlock() {
   const activeIndex = Math.max(0, state.results.findIndex((r) => r.name === state.activeTab));
 
-  const list = el('div', { class: 'tabs', attrs: { role: 'tablist', 'aria-label': '판독 결과 탭' } },
-    state.results.map((person, i) => {
-      const band = bandFor(person.overallConfidence, person.estimableCount > 0);
-      return el('button', {
-        class: 'tab',
-        attrs: {
-          type: 'button',
-          role: 'tab',
-          id: `tab-${i}`,
-          'aria-controls': `panel-${i}`,
-          'aria-selected': i === activeIndex ? 'true' : 'false',
-          tabindex: i === activeIndex ? '0' : '-1',
-        },
-      }, [
-        el('span', { class: 'tab__name', text: person.name }),
-        el('span', { class: 'tab__type', text: person.type }),
-        el('span', { class: `dot dot--${band.key}`, attrs: { 'aria-hidden': 'true' } }),
-      ]);
-    }),
-  );
+  const showTabs = state.results.length > 1;
+  const list = showTabs
+    ? el('div', { class: 'tabs', attrs: { role: 'tablist', 'aria-label': '판독 결과 탭' } },
+        state.results.map((person, i) => {
+          const band = bandFor(person.overallConfidence, person.estimableCount > 0);
+          return el('button', {
+            class: 'tab',
+            attrs: {
+              type: 'button',
+              role: 'tab',
+              id: `tab-${i}`,
+              'aria-controls': `panel-${i}`,
+              'aria-selected': i === activeIndex ? 'true' : 'false',
+              tabindex: i === activeIndex ? '0' : '-1',
+            },
+          }, [
+            el('span', { class: 'tab__name', text: person.name }),
+            el('span', { class: 'tab__type', text: person.type }),
+            el('span', { class: `dot dot--${band.key}`, attrs: { 'aria-hidden': 'true' } }),
+          ]);
+        }),
+      )
+    : null;
 
-  list.addEventListener('click', (event) => {
-    const tab = event.target.closest('.tab');
-    if (!tab) return;
-    activateTab([...list.children].indexOf(tab));
-  });
+  if (list) {
+    list.addEventListener('click', (event) => {
+      const tab = event.target.closest('.tab');
+      if (!tab) return;
+      activateTab([...list.children].indexOf(tab));
+    });
 
-  list.addEventListener('keydown', (event) => {
-    const count = list.children.length;
-    const current = [...list.children].indexOf(document.activeElement);
-    if (current < 0) return;
+    list.addEventListener('keydown', (event) => {
+      const count = list.children.length;
+      const current = [...list.children].indexOf(document.activeElement);
+      if (current < 0) return;
 
-    let next = null;
-    if (event.key === 'ArrowRight') next = (current + 1) % count;
-    else if (event.key === 'ArrowLeft') next = (current - 1 + count) % count;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = count - 1;
-    if (next == null) return;
+      let next = null;
+      if (event.key === 'ArrowRight') next = (current + 1) % count;
+      else if (event.key === 'ArrowLeft') next = (current - 1 + count) % count;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = count - 1;
+      if (next == null) return;
 
-    event.preventDefault();
-    activateTab(next);
-  });
+      event.preventDefault();
+      activateTab(next);
+    });
+  }
 
   const panels = el('div', { class: 'panels' },
     state.results.map((person, i) => {
@@ -1267,17 +1275,23 @@ function resultsBlock() {
     }),
   );
 
+  const isSingle = Boolean(state.results && state.results.length === 1);
+  const headTitle = isSingle && state.results[0]?.name
+    ? `${state.results[0].name}님의 MBTI 판독 결과`
+    : `판독 결과 (${state.results.length}명)`;
+
+  const shareBtnText = isSingle ? '결과 공유하기' : '전체 결과 공유하기';
   const shareAllBtn = el('button', {
     class: 'btn btn--ghost btn--sm btn--share',
-    attrs: { type: 'button', title: '전체 판독 결과 카톡/링크 공유' },
+    attrs: { type: 'button', title: isSingle ? 'MBTI 판독 결과 카톡/링크 공유' : '전체 판독 결과 카톡/링크 공유' },
   }, [
     el('span', { text: '🔗', attrs: { 'aria-hidden': 'true' } }),
-    el('span', { text: '전체 결과 공유하기' }),
+    el('span', { text: shareBtnText }),
   ]);
-  shareAllBtn.addEventListener('click', () => shareResult(null));
+  shareAllBtn.addEventListener('click', () => shareResult(isSingle ? state.results[0] : null));
 
   const head = el('div', { class: 'results__head' }, [
-    el('h3', { class: 'section-title', text: `판독 결과 (${state.results.length}명)` }),
+    el('h3', { class: 'section-title', text: headTitle }),
     shareAllBtn,
   ]);
 
@@ -1289,8 +1303,46 @@ function resultsBlock() {
 }
 
 function renderFlow() {
-  if (!state.speakerData) {
+  if (!state.speakerData && !state.results.length) {
     renderEmpty();
+    return;
+  }
+
+  // 공유 링크로 접속한 경우: 대화 요약, 판독할 사람 선택(체크박스), 1~3단계 스텝 바 등을 생략하고 오직 "판독 결과"만 노출
+  if (state.isSharedView) {
+    const isSingle = Boolean(state.results && state.results.length === 1 && state.activeTab);
+    const targetName = isSingle ? state.results[0]?.name : null;
+    const titleText = targetName
+      ? `친구가 공유한 ${targetName}님의 MBTI 분석 결과입니다`
+      : '친구가 공유한 톡방 MBTI 분석 결과입니다';
+    const subText = targetName
+      ? `${targetName}님의 4축 MBTI 성향 판독 결과입니다. (초대 혜택 5분 단축 적용됨 ⚡)`
+      : '참여자들의 4축 MBTI 성향 분석 결과입니다. (초대 혜택 5분 단축 적용됨 ⚡)';
+
+    const newBtn = el('button', {
+      class: 'btn btn--primary btn--sm',
+      attrs: { type: 'button' },
+      text: '나도 새 대화 분석하기',
+    });
+    newBtn.addEventListener('click', () => clearSharedView());
+
+    const banner = el('div', { class: 'shared-result-banner' }, [
+      el('div', { class: 'shared-result-banner__content' }, [
+        el('span', { class: 'shared-result-banner__icon', text: '💬' }),
+        el('div', {}, [
+          el('strong', { text: titleText }),
+          el('p', { text: subText }),
+        ]),
+      ]),
+      newBtn,
+    ]);
+
+    const container = el('div', { class: 'flow shared-flow' }, [
+      banner,
+      state.results.length ? resultsBlock() : null,
+    ]);
+
+    $('results-body').replaceChildren(container);
     return;
   }
 
@@ -1627,12 +1679,16 @@ async function copyInviteLink() {
 
 function clearSharedView() {
   window.history.replaceState({}, '', window.location.pathname);
+  state.isSharedView = false;
   if (state.currentMode === 'love') {
+    state.loveData = null;
     renderLoveEmpty();
+    $('love-chat')?.focus();
   } else {
     state.speakerData = null;
     state.results = [];
     renderEmpty();
+    $('chat')?.focus();
   }
   showToast('새로운 대화 분석을 시작하세요!');
 }
@@ -1652,6 +1708,7 @@ function renderSharedResult(shareData) {
 }
 
 function renderSharedMbti(shareData) {
+  state.isSharedView = true;
   state.speakerData = shareData.speakerData || {
     speakers: (shareData.results || []).map((r) => ({ name: r.name, lines: 10 })),
     summary: shareData.title || '대화 참여자 MBTI 분석 결과',
@@ -1664,27 +1721,6 @@ function renderSharedMbti(shareData) {
     state.activeTab = state.results[0].name;
   }
   renderFlow();
-  const body = $('results-body');
-  if (!body) return;
-
-  const newBtn = el('button', {
-    class: 'btn btn--primary btn--sm',
-    attrs: { type: 'button' },
-    text: '나도 새 대화 분석하기',
-  });
-  newBtn.addEventListener('click', () => clearSharedView());
-
-  const banner = el('div', { class: 'shared-result-banner' }, [
-    el('div', { class: 'shared-result-banner__content' }, [
-      el('span', { class: 'shared-result-banner__icon', text: '💬' }),
-      el('div', {}, [
-        el('strong', { text: '친구가 공유한 톡방 MBTI 분석 결과입니다' }),
-        el('p', { text: '참여자들의 4축 MBTI 성향 분석 결과입니다. (초대 혜택 5분 단축 적용됨 ⚡)' }),
-      ]),
-    ]),
-    newBtn,
-  ]);
-  body.prepend(banner);
 }
 
 // 단순 친구 초대 링크로 접속했을 때 상단 안내 배너 표시
@@ -2080,6 +2116,7 @@ function renderLoveError(message, detail) {
 
 async function analyzeLove() {
   if (state.loveBusy) return;
+  window.history.replaceState({}, '', window.location.pathname);
 
   if (!state.hasCustomKey) {
     if (state.quotaExhausted) {
