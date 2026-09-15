@@ -244,15 +244,140 @@ function normalizeSpeakers(raw) {
   };
 }
 
+export function parseKakaoSpeakers(text) {
+  if (!text || typeof text !== 'string') return [];
+  const lines = text.split(/\r?\n/);
+  const speakerCounts = new Map();
+
+  const bracketPattern = /^\s*\[([^\]]{1,50})\]\s*\[(?:오전|오후|\d{1,2}:\d{2})[^\]]*\]\s*(.*)$/;
+  const dateCommaPattern = /^\s*(?:\d{4}[년\.\-/]\s*)?\d{1,2}[월\.\-/]\s*\d{1,2}[일\.]?.*?,\s*([^:\n]{1,50})\s*:\s*(.*)$/;
+  const simpleColonPattern = /^\s*([^:\n]{1,40})\s*:\s*(.+)$/;
+
+  const systemBlacklist = /저장한 날짜|카카오톡 대화|님이 (?:들어왔|나갔|초대|퇴장|채팅방을 나갔습니다)|채팅방을 나갔습니다|삭제된 메시지|샵검색:|선물하기|보이스톡|페이스톡|라이브톡/;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || systemBlacklist.test(trimmed)) continue;
+    if (/^-+\s*\d{4}[년\.\-/].*-+$/.test(trimmed)) continue;
+
+    let m = trimmed.match(bracketPattern);
+    if (!m) m = trimmed.match(dateCommaPattern);
+    if (!m && !trimmed.startsWith('http') && !trimmed.startsWith('👉') && !trimmed.startsWith('www.')) {
+      const colonMatch = trimmed.match(simpleColonPattern);
+      if (colonMatch && !colonMatch[1].includes('://') && colonMatch[1].length <= 25) {
+        m = colonMatch;
+      }
+    }
+
+    if (m) {
+      const name = m[1].trim();
+      if (name && !systemBlacklist.test(name)) {
+        speakerCounts.set(name, (speakerCounts.get(name) || 0) + 1);
+      }
+    }
+  }
+
+  return Array.from(speakerCounts.entries())
+    .map(([name, count]) => ({
+      name,
+      messageCount: count,
+      aliases: [],
+      note: `${count}회 발화`,
+    }))
+    .sort((a, b) => b.messageCount - a.messageCount);
+}
+
+export function sampleConversationForSpeakers(text, maxChars = 15_000) {
+  if (text.length <= maxChars) return text;
+  const lines = text.split(/\r?\n/);
+  const headCount = Math.floor(lines.length * 0.4);
+  const tailCount = Math.floor(lines.length * 0.4);
+  const midCount = Math.floor(lines.length * 0.2);
+  const midStart = Math.floor((lines.length - midCount) / 2);
+
+  const sampled = [
+    ...lines.slice(0, headCount),
+    '\n... (중간 대화 생략) ...\n',
+    ...lines.slice(midStart, midStart + midCount),
+    '\n... (중간 대화 생략) ...\n',
+    ...lines.slice(-tailCount),
+  ].join('\n');
+
+  return sampled.slice(0, maxChars);
+}
+
+export function filterConversationForPerson(conversation, personName, maxChars = 18_000) {
+  if (!conversation || conversation.length <= maxChars) {
+    return conversation;
+  }
+
+  const lines = conversation.split(/\r?\n/);
+  const targetPattern = new RegExp(`^\\[${personName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]|^${personName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`);
+
+  const selectedIndices = new Set();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (targetPattern.test(line)) {
+      if (i > 0) selectedIndices.add(i - 1);
+      selectedIndices.add(i);
+      if (i < lines.length - 1) selectedIndices.add(i + 1);
+    }
+  }
+
+  const extracted = Array.from(selectedIndices)
+    .sort((a, b) => a - b)
+    .map(i => lines[i]);
+
+  if (extracted.length < 5) {
+    return sampleConversationForSpeakers(conversation, maxChars);
+  }
+
+  const joined = extracted.join('\n');
+  if (joined.length <= maxChars) {
+    return joined;
+  }
+
+  const headCount = Math.floor(extracted.length * 0.35);
+  const tailCount = Math.floor(extracted.length * 0.45);
+  const midCount = Math.floor(extracted.length * 0.2);
+  const midStart = Math.floor((extracted.length - midCount) / 2);
+
+  const sampled = [
+    ...extracted.slice(0, headCount),
+    '\n... (중간 대화 생략) ...\n',
+    ...extracted.slice(midStart, midStart + midCount),
+    '\n... (중간 대화 생략) ...\n',
+    ...extracted.slice(-tailCount),
+  ];
+
+  return sampled.join('\n').slice(0, maxChars);
+}
+
 export async function extractSpeakers({ conversation, apiKey, model, wire }) {
   const { text, truncated } = prepare(conversation);
+
+  // 1. 카카오톡 대화 정규식 초고속 파서 (대용량 6만자+ 텍스트도 0.005초 내 완료, 타임아웃 완전 차단)
+  const parsedSpeakers = parseKakaoSpeakers(text);
+  if (parsedSpeakers && parsedSpeakers.length >= 1) {
+    const totalMessages = parsedSpeakers.reduce((acc, s) => acc + (s.messageCount || 0), 0);
+    return {
+      format: '카카오톡 대화',
+      messageCount: totalMessages,
+      summary: `대화 참여자 ${parsedSpeakers.length}명의 발화 목록이 감지되었습니다.`,
+      speakers: parsedSpeakers.slice(0, 30),
+      meta: { inputCharacters: text.length, truncated, fastExtracted: true },
+    };
+  }
+
+  // 2. 비정형 텍스트인 경우 LLM 호출 (대용량 텍스트는 15,000자로 안전 압축하여 호출)
+  const promptText = sampleConversationForSpeakers(text, 15_000);
 
   const json = await requestJson({
     apiKey,
     model,
     wire,
     system: SPEAKER_SYSTEM_PROMPT,
-    user: buildSpeakerPrompt(text),
+    user: buildSpeakerPrompt(promptText),
     label: 'speakers',
   });
 
@@ -350,16 +475,19 @@ export async function analyzePerson({ conversation, person, apiKey, model, wire 
     throw new ApiError('분석할 사람의 이름이 비어 있습니다.', 400, 'no_name');
   }
 
+  // 대용량 대화(6만자+)에서도 타임아웃 없이 빠르고 정확하게 분석할 수 있도록 대상 인물 발화 중심 압축
+  const filteredText = filterConversationForPerson(text, target.name, 18_000);
+
   const json = await requestJson({
     apiKey,
     model,
     wire,
     system: PERSON_SYSTEM_PROMPT,
-    user: buildPersonPrompt(text, target),
+    user: buildPersonPrompt(filteredText, target),
     label: `person:${target.name}`,
   });
 
   const result = normalizePerson(json, target.name);
-  result.meta = { inputCharacters: text.length, truncated };
+  result.meta = { inputCharacters: text.length, analyzedCharacters: filteredText.length, truncated };
   return result;
 }

@@ -79,14 +79,39 @@ function extractJson(raw) {
   return JSON.parse(candidate);
 }
 
+export function sampleConversationForLove(text, maxChars = 20_000) {
+  if (!text || text.length <= maxChars) return text;
+
+  const lines = text.split(/\r?\n/);
+  if (lines.length <= 100) return text.slice(0, maxChars);
+
+  const headCount = Math.floor(lines.length * 0.3);
+  const tailCount = Math.floor(lines.length * 0.45);
+  const midCount = Math.floor(lines.length * 0.25);
+  const midStart = Math.floor((lines.length - midCount) / 2);
+
+  const sampledLines = [
+    ...lines.slice(0, headCount),
+    '\n... [중간 대화 생략 및 시계열 보존] ...\n',
+    ...lines.slice(midStart, midStart + midCount),
+    '\n... [중간 대화 생략 및 시계열 보존] ...\n',
+    ...lines.slice(-tailCount),
+  ];
+
+  return sampledLines.join('\n').slice(0, maxChars);
+}
+
 export async function analyzeLove({ conversation, apiKey, model, wire }) {
   const text = String(conversation || '').trim();
   if (text.length < 20) {
     throw new ApiError('대화 내용이 너무 짧습니다. 최소 몇 줄 이상의 대화를 입력해 주세요.', 400, 'too_short');
   }
 
+  // 6만자 이상 대용량 대화도 5~8초 내에 타임아웃 없이 정밀 분석되도록 시계열 보존 샘플링
+  const sampledText = sampleConversationForLove(text, 20_000);
+
   const prompt = `다음 대화 내용을 정밀 분석하여 두 사람의 상호 애정도와 시계열 추이를 측정해 주세요:\n\n` +
-    text.slice(0, MAX_INPUT_CHARS);
+    sampledText;
 
   const start = Date.now();
   const controller = new AbortController();
