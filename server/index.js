@@ -166,7 +166,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   const keyState = serverApiKey() ? '설정됨' : '없음 (.env 확인 필요)';
-  console.log(`\n  대화 MBTI 판독기`);
+  console.log(`\n  온라인MBTI`);
   console.log(`  ▶ http://localhost:${PORT}`);
   console.log(`  API 키: ${keyState}\n`);
 });
