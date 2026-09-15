@@ -197,6 +197,7 @@ async function findSpeakers() {
 
     if (!res.ok) {
       renderError(data?.error?.message || '등장인물을 찾지 못했습니다.', data?.error?.code);
+      if (res.status === 429) refreshQuota();
       return;
     }
 
@@ -207,6 +208,7 @@ async function findSpeakers() {
     state.results = [];
     state.activeTab = null;
 
+    renderQuota(data);
     stopTimers();
     renderFlow();
   } catch (err) {
@@ -652,6 +654,8 @@ async function runSelected() {
     if (node) node.textContent = `경과 ${Math.floor((Date.now() - state.runStartedAt) / 1000)}초`;
   }, 1000);
 
+  let quotaBlocked = false;
+
   try {
     for (const speaker of targets) {
       state.status.set(speaker.name, 'running');
@@ -673,10 +677,15 @@ async function runSelected() {
         if (!res.ok) {
           state.status.set(speaker.name, 'error');
           state.errors.set(speaker.name, data?.error?.message || `실패 (HTTP ${res.status})`);
+          if (res.status === 429) {
+            quotaBlocked = true;
+            break;
+          }
         } else {
           state.results.push(data);
           state.status.set(speaker.name, 'done');
           if (!state.activeTab || state.activeTab === speaker.name) state.activeTab = data.name;
+          renderQuota(data);
         }
       } catch (err) {
         state.status.set(speaker.name, 'error');
@@ -690,6 +699,7 @@ async function runSelected() {
     if (state.runTimer) clearInterval(state.runTimer);
     state.runTimer = null;
     setBusy(false);
+    if (quotaBlocked) await refreshQuota();
     renderFlow();
   }
 }
@@ -783,6 +793,46 @@ function bindDropzone() {
   ['dragover', 'drop'].forEach((type) => window.addEventListener(type, (event) => event.preventDefault()));
 }
 
+function renderQuota(payload) {
+  const node = $('quota');
+  const usage = payload?.usage;
+  if (!usage) return;
+
+  const personCost = payload.cost?.person ?? 3;
+  const perIpRemaining = Math.min(usage.dailyRemaining, usage.hourlyRemaining);
+  const remaining = Math.min(perIpRemaining, usage.globalRemaining);
+  const peopleLeft = Math.floor(remaining / personCost);
+
+  node.hidden = false;
+  node.classList.toggle('is-out', peopleLeft <= 0);
+  node.classList.toggle('is-low', peopleLeft > 0 && peopleLeft <= 2);
+
+  const hourlyBound = usage.hourlyRemaining <= usage.dailyRemaining;
+  const resetText = hourlyBound && usage.hourlyRemaining < usage.dailyRemaining
+    ? '잠시 후 다시 채워집니다'
+    : '내일 초기화됩니다';
+
+  const message =
+    peopleLeft > 0
+      ? ` · 오늘 약 ${peopleLeft}명까지 판독할 수 있습니다 (${resetText})`
+      : ` · 오늘 무료 판독을 모두 사용했습니다 (${resetText})`;
+
+  node.replaceChildren(
+    el('strong', { text: '무료 한도' }),
+    el('span', { text: message }),
+  );
+}
+
+async function refreshQuota() {
+  try {
+    const res = await fetch('/api/usage');
+    if (!res.ok) return;
+    renderQuota(await res.json());
+  } catch {
+    /* 한도 표시는 실패해도 조용히 넘어간다 */
+  }
+}
+
 async function loadModels() {
   try {
     const res = await fetch('/api/models');
@@ -816,6 +866,7 @@ function bindEvents() {
 }
 
 loadModels();
+refreshQuota();
 bindEvents();
 bindDropzone();
 updateCount();
