@@ -218,7 +218,8 @@ async function serveStatic(req, res, pathname) {
 }
 
 export async function handleRequest(req, res) {
-  const { pathname } = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const rawUrl = req.headers['x-matched-path'] || req.url;
+  const { pathname } = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
 
   try {
     if (req.method === 'GET' && pathname === '/api/usage') {
