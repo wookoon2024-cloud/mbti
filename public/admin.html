@@ -566,15 +566,24 @@
   </div>
 
   <script>
-    let authToken = sessionStorage.getItem('admin_token') || '';
+    let authToken = localStorage.getItem('admin_token') || sessionStorage.getItem('admin_token') || '';
     let currentPeriod = 'daily';
     let cachedStats = null;
     let refreshTimer = null;
+    let authFailCount = 0;
 
     const authView = document.getElementById('auth-view');
     const dashboardView = document.getElementById('dashboard-view');
     const loginForm = document.getElementById('login-form');
     const loginErr = document.getElementById('login-err');
+
+    // 이전 캐시 데이터 즉시 복원 (화면 깜빡임 및 0 초기화 방지)
+    try {
+      const savedStats = localStorage.getItem('cached_admin_stats');
+      if (savedStats) {
+        cachedStats = JSON.parse(savedStats);
+      }
+    } catch {}
 
     function checkAuth() {
       if (authToken) {
@@ -587,12 +596,18 @@
     function showLogin() {
       authView.style.display = 'flex';
       dashboardView.style.display = 'none';
-      if (refreshTimer) clearInterval(refreshTimer);
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
     }
 
     function showDashboard() {
       authView.style.display = 'none';
       dashboardView.style.display = 'flex';
+      if (cachedStats) {
+        renderDashboard(cachedStats);
+      }
       fetchStats();
       if (!refreshTimer) {
         refreshTimer = setInterval(fetchStats, 5000); // 5초 주기 실시간 자동 갱신
@@ -614,7 +629,8 @@
         const data = await res.json();
         if (res.ok && data.token) {
           authToken = data.token;
-          sessionStorage.setItem('admin_token', authToken);
+          localStorage.setItem('admin_token', authToken);
+          authFailCount = 0;
           showDashboard();
         } else {
           loginErr.textContent = data.error?.message || '로그인에 실패했습니다.';
@@ -634,6 +650,7 @@
         });
       } catch {}
       authToken = '';
+      localStorage.removeItem('admin_token');
       sessionStorage.removeItem('admin_token');
       showLogin();
     });
@@ -649,13 +666,22 @@
           headers: { Authorization: 'Bearer ' + authToken },
         });
         if (res.status === 401) {
-          authToken = '';
-          sessionStorage.removeItem('admin_token');
-          showLogin();
+          authFailCount += 1;
+          // 서버리스 일시 지연 등 단발성 오류 방지: 연속 2회 이상 401일 때만 로그아웃
+          if (authFailCount >= 2) {
+            authToken = '';
+            localStorage.removeItem('admin_token');
+            sessionStorage.removeItem('admin_token');
+            showLogin();
+          }
           return;
         }
+        authFailCount = 0;
         const data = await res.json();
         cachedStats = data;
+        try {
+          localStorage.setItem('cached_admin_stats', JSON.stringify(data));
+        } catch {}
         renderDashboard(data);
       } catch (err) {
         console.error('Failed to fetch admin stats:', err);

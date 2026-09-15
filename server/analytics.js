@@ -108,11 +108,15 @@ export function trackEvent(ip, type, detail = '') {
   saveData();
 }
 
+const TOKEN_SECRET = process.env.ADMIN_TOKEN_SECRET || (ADMIN_PW + '_secret_key_talkscanner_2026');
+
 export function authenticateAdmin(id, pw) {
   if (id === ADMIN_ID && pw === ADMIN_PW) {
-    const token = crypto.randomBytes(32).toString('hex');
-    adminSessions.add(token);
-    return token;
+    // 7일간 유효한 HMAC 서명 토큰 발급 (서버리스 인스턴스 변경 시에도 유효)
+    const payload = JSON.stringify({ id, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+    const b64 = Buffer.from(payload).toString('base64url');
+    const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(b64).digest('base64url');
+    return `${b64}.${sig}`;
   }
   return null;
 }
@@ -127,14 +131,21 @@ export function verifyAdmin(req) {
     const match = cookie.match(/admin_token=([^;]+)/);
     if (match) token = match[1];
   }
-  return adminSessions.has(token);
+  if (!token || !token.includes('.')) return false;
+  const [b64, sig] = token.split('.');
+  const expectedSig = crypto.createHmac('sha256', TOKEN_SECRET).update(b64).digest('base64url');
+  if (sig !== expectedSig) return false;
+  try {
+    const payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf-8'));
+    if (payload.id !== ADMIN_ID || Date.now() > payload.exp) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function revokeAdmin(req) {
-  const authHeader = req.headers['authorization'] || '';
-  if (authHeader.startsWith('Bearer ')) {
-    adminSessions.delete(authHeader.slice(7).trim());
-  }
+  // 상태 비저장 서명 토큰
 }
 
 export function getAnalyticsStats() {
