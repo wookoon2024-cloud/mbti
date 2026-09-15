@@ -1479,7 +1479,7 @@ function updateCount() {
   $('chat-count').textContent = `${$('chat').value.length.toLocaleString('ko-KR')}자`;
 }
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const SMART_SLICE_LIMIT_BYTES = 2.5 * 1024 * 1024; // 2.5MB (약 70만~90만 자, Vercel 및 서버 4MB 한도 안전 범위)
 
 async function decodeFile(file) {
   const buffer = await file.arrayBuffer();
@@ -1504,18 +1504,31 @@ function setFileInfo(message, isError) {
 async function loadFile(file) {
   if (!file) return;
 
-  if (file.size > MAX_FILE_BYTES) {
-    setFileInfo(`파일이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 5MB 이하만 됩니다.`, true);
-    return;
-  }
+  const isLarge = file.size > SMART_SLICE_LIMIT_BYTES;
+  const targetBlob = isLarge ? file.slice(file.size - SMART_SLICE_LIMIT_BYTES) : file;
 
   try {
-    const text = await decodeFile(file);
+    let text = await decodeFile(targetBlob);
+    if (isLarge) {
+      const firstNewline = text.indexOf('\n');
+      if (firstNewline >= 0) {
+        text = text.slice(firstNewline + 1);
+      }
+    }
+
     $('chat').value = text;
     updateCount();
-    setFileInfo(`${file.name} · ${(file.size / 1024).toFixed(1)}KB 불러옴`, false);
+
+    const originalMb = (file.size / 1024 / 1024).toFixed(1);
+    if (isLarge) {
+      const charsText = `${Math.round(text.length / 10000)}만 자`;
+      setFileInfo(`⚡ 대용량 파일(${originalMb}MB) 감지: 최신 대화(약 2.5MB / ${charsText})를 자동 발췌하여 완벽히 불러왔습니다.`, false);
+      showToast(`⚡ ${originalMb}MB 대용량 파일에서 최신 대화(약 ${charsText})를 자동으로 발췌했습니다!`);
+    } else {
+      setFileInfo(`${file.name} · ${(file.size / 1024).toFixed(1)}KB 불러옴`, false);
+    }
   } catch (err) {
-    setFileInfo('파일을 읽지 못했습니다.', true);
+    setFileInfo('파일을 읽지 못했습니다. 올바른 텍스트 파일인지 확인해 주세요.', true);
     console.error(err);
   }
 }
@@ -2708,23 +2721,32 @@ async function loadLoveFile(file) {
   const chat = $('love-chat');
   if (!file || !chat) return;
 
-  if (file.size > MAX_FILE_BYTES) {
-    if (info) {
-      info.hidden = false;
-      info.classList.add('is-error');
-      info.textContent = `파일이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 5MB 이하만 가능합니다.`;
-    }
-    return;
-  }
+  const isLarge = file.size > SMART_SLICE_LIMIT_BYTES;
+  const targetBlob = isLarge ? file.slice(file.size - SMART_SLICE_LIMIT_BYTES) : file;
 
   try {
-    const text = await decodeFile(file);
+    let text = await decodeFile(targetBlob);
+    if (isLarge) {
+      const firstNewline = text.indexOf('\n');
+      if (firstNewline >= 0) {
+        text = text.slice(firstNewline + 1);
+      }
+    }
+
     chat.value = text;
     updateLoveCount();
+
     if (info) {
       info.hidden = false;
       info.classList.remove('is-error');
-      info.textContent = `불러온 파일: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`;
+      const originalMb = (file.size / 1024 / 1024).toFixed(1);
+      if (isLarge) {
+        const charsText = `${Math.round(text.length / 10000)}만 자`;
+        info.textContent = `⚡ 대용량 파일(${originalMb}MB): 최신 대화(약 2.5MB / ${charsText})를 자동 발췌하여 로드했습니다.`;
+        showToast(`⚡ ${originalMb}MB 대용량 파일에서 최신 대화(약 ${charsText})를 자동으로 발췌했습니다!`);
+      } else {
+        info.textContent = `불러온 파일: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`;
+      }
     }
   } catch (err) {
     if (info) {
