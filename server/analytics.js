@@ -4,23 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import pg from 'pg';
-
-let rawConn = process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || '';
-if (rawConn && rawConn.includes('?')) {
-  rawConn = rawConn.split('?')[0];
-}
-
-let pgPool = null;
-if (rawConn) {
-  pgPool = new pg.Pool({
-    connectionString: rawConn,
-    ssl: { rejectUnauthorized: false },
-    max: 3,
-    idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 5000,
-  });
-}
+import { pgPool } from './db.js';
 
 const ANALYTICS_FILE = process.env.VERCEL
   ? path.resolve('/tmp', 'analytics.json')
@@ -128,12 +112,17 @@ export async function pullFromSupabase() {
 pullFromSupabase().catch(() => {});
 
 let dbSaveTimer = null;
-function pushToSupabase(immediate = false) {
+export async function pushToSupabase(immediate = true) {
   if (!pgPool) return;
   if (dbSaveTimer) clearTimeout(dbSaveTimer);
   const doSave = async () => {
     try {
       await ensureDbTable();
+      // DB의 최신 데이터가 있으면 병합 후 저장 (다른 인스턴스와 데이터 동기화)
+      const res = await pgPool.query(`SELECT data FROM talkscanner_analytics WHERE key = 'store'`);
+      if (res.rows && res.rows.length > 0 && res.rows[0].data) {
+        mergeStore(res.rows[0].data);
+      }
       const payload = JSON.stringify({
         daily: store.daily,
         recentEvents: store.recentEvents.slice(0, 100),
@@ -145,17 +134,17 @@ function pushToSupabase(immediate = false) {
         SET data = EXCLUDED.data, updated_at = NOW();
       `, [payload]);
     } catch (err) {
-      console.warn('[Supabase] push error:', err.message);
+      console.warn('[DB] push error:', err.message);
     }
   };
   if (immediate) {
-    doSave().catch(() => {});
+    await doSave();
   } else {
     dbSaveTimer = setTimeout(doSave, 1500);
   }
 }
 
-function saveData(immediateCloud = false) {
+function saveData(immediateCloud = true) {
   try {
     const dir = path.dirname(ANALYTICS_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -176,7 +165,7 @@ function saveData(immediateCloud = false) {
   } catch (err) {
     console.warn('Failed to save analytics to disk:', err.message);
   }
-  pushToSupabase(immediateCloud);
+  pushToSupabase(immediateCloud).catch(() => {});
 }
 
 function ensureTodayEntry() {
@@ -198,7 +187,22 @@ export function trackVisit(ip, pathname, userAgent = '') {
     entry.uvIps.push(ip);
   }
 
-  saveData();
+  // DB에 활성 세션 즉시 기록
+  if (pgPool) {
+    ensureDbTable().then(() => {
+      pgPool.query(`
+        INSERT INTO talkscanner_active_sessions (ip, last_seen, user_agent, path, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (ip) DO UPDATE SET
+          last_seen = EXCLUDED.last_seen,
+          user_agent = EXCLUDED.user_agent,
+          path = EXCLUDED.path,
+          updated_at = NOW();
+      `, [ip, now, userAgent.slice(0, 150), pathname]).catch(() => {});
+    }).catch(() => {});
+  }
+
+  saveData(true);
 }
 
 export function trackEvent(ip, type, detail = '') {
@@ -207,7 +211,7 @@ export function trackEvent(ip, type, detail = '') {
 
   const entry = ensureTodayEntry();
   entry.apiTotal += 1;
-  if (type === 'mbti') entry.mbti += 1;
+  if (type === 'mbti' || type === 'speakers') entry.mbti += 1;
   if (type === 'love') entry.love += 1;
 
   store.recentEvents.unshift({
@@ -218,7 +222,22 @@ export function trackEvent(ip, type, detail = '') {
   });
   if (store.recentEvents.length > 100) store.recentEvents.length = 100;
 
-  saveData();
+  // DB에 활성 세션 즉시 기록
+  if (pgPool) {
+    ensureDbTable().then(() => {
+      pgPool.query(`
+        INSERT INTO talkscanner_active_sessions (ip, last_seen, user_agent, path, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (ip) DO UPDATE SET
+          last_seen = EXCLUDED.last_seen,
+          user_agent = EXCLUDED.user_agent,
+          path = EXCLUDED.path,
+          updated_at = NOW();
+      `, [ip, now, '', type]).catch(() => {});
+    }).catch(() => {});
+  }
+
+  saveData(true);
 }
 
 const TOKEN_SECRET = process.env.ADMIN_TOKEN_SECRET || (ADMIN_PW + '_secret_key_talkscanner_2026');
@@ -263,38 +282,49 @@ export function revokeAdmin(req) {
 
 export async function getAnalyticsStats() {
   await pullFromSupabase();
-  const diskData = loadData();
-  // 메모리 상의 당일 데이터와 디스크 데이터 병합
-  for (const [k, v] of Object.entries(diskData.daily || {})) {
-    if (!store.daily[k]) {
-      store.daily[k] = v;
-    } else {
-      const cur = store.daily[k];
-      cur.pv = Math.max(cur.pv || 0, v.pv || 0);
-      cur.mbti = Math.max(cur.mbti || 0, v.mbti || 0);
-      cur.love = Math.max(cur.love || 0, v.love || 0);
-      cur.apiTotal = Math.max(cur.apiTotal || 0, v.apiTotal || 0);
-      const combined = new Set([...(cur.uvIps || []), ...(v.uvIps || [])]);
-      cur.uvIps = Array.from(combined);
-    }
-  }
 
   const now = Date.now();
   const fiveMinAgo = now - 5 * 60 * 1000;
 
-  // 활성 세션 정리
+  // DB에서 최근 5분 이내 활성 세션 실시간 조회
   const currentActives = [];
-  for (const [ip, data] of activeSessions.entries()) {
-    if (data.lastSeen >= fiveMinAgo) {
-      currentActives.push({
-        ip: ip.replace(/(\d+)\.\d+$/, '$1.***'),
-        rawIp: ip,
-        lastSeenSec: Math.round((now - data.lastSeen) / 1000),
-        userAgent: data.userAgent,
-        path: data.path,
-      });
-    } else {
-      activeSessions.delete(ip);
+  if (pgPool) {
+    try {
+      await ensureDbTable();
+      await pgPool.query(`DELETE FROM talkscanner_active_sessions WHERE last_seen < $1`, [fiveMinAgo]);
+      const res = await pgPool.query(
+        `SELECT * FROM talkscanner_active_sessions WHERE last_seen >= $1 ORDER BY last_seen DESC`,
+        [fiveMinAgo]
+      );
+      for (const row of res.rows || []) {
+        const lastSeen = Number(row.last_seen);
+        currentActives.push({
+          ip: row.ip.replace(/(\d+)\.\d+$/, '$1.***'),
+          rawIp: row.ip,
+          lastSeenSec: Math.max(0, Math.round((now - lastSeen) / 1000)),
+          userAgent: row.user_agent || '',
+          path: row.path || '',
+        });
+      }
+    } catch (err) {
+      console.warn('[DB] Active sessions query error:', err.message);
+    }
+  }
+
+  // 로컬 메모리 활성 세션 보완
+  if (currentActives.length === 0) {
+    for (const [ip, data] of activeSessions.entries()) {
+      if (data.lastSeen >= fiveMinAgo) {
+        currentActives.push({
+          ip: ip.replace(/(\d+)\.\d+$/, '$1.***'),
+          rawIp: ip,
+          lastSeenSec: Math.max(0, Math.round((now - data.lastSeen) / 1000)),
+          userAgent: data.userAgent,
+          path: data.path,
+        });
+      } else {
+        activeSessions.delete(ip);
+      }
     }
   }
 

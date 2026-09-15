@@ -131,6 +131,7 @@ function withUsage(payload, ip, isCustomKey = false) {
 async function handleSpeakers(req, res) {
   const { body, apiKey, isCustomKey, modelInfo } = await readRequest(req);
   const ip = requestIp(req);
+  await limiter.syncFromDb(ip);
   assertConversation(body.conversation);
 
   const lease = guard(ip, COST.speakers, { isStep1: true, isCustomKey });
@@ -145,6 +146,7 @@ async function handleSpeakers(req, res) {
     result.meta.model = modelInfo.id;
     result.meta.modelName = modelInfo.name;
     trackEvent(ip, 'speakers', `등장인물 추출 (${result.speakers?.length || 0}명)`);
+    await limiter.syncToDb(ip);
     sendJson(res, 200, withUsage(result, ip, isCustomKey));
   } finally {
     lease.release();
@@ -154,6 +156,7 @@ async function handleSpeakers(req, res) {
 async function handlePerson(req, res) {
   const { body, apiKey, isCustomKey, modelInfo } = await readRequest(req);
   const ip = requestIp(req);
+  await limiter.syncFromDb(ip);
   assertConversation(body.conversation);
 
   const lease = guard(ip, COST.person, { isCustomKey });
@@ -179,6 +182,7 @@ async function handlePerson(req, res) {
 async function handleLove(req, res) {
   const { body, apiKey, isCustomKey, modelInfo } = await readRequest(req);
   const ip = requestIp(req);
+  await limiter.syncFromDb(ip);
   assertConversation(body.conversation);
 
   const lease = guard(ip, COST.love, { isLove: true, isCustomKey });
@@ -193,6 +197,7 @@ async function handleLove(req, res) {
     result.meta.model = modelInfo.id;
     result.meta.modelName = modelInfo.name;
     trackEvent(ip, 'love', `1:1 애정 분석 (${result.loveAnalysis?.summary?.chemistryScore || 0}점)`);
+    await limiter.syncToDb(ip);
     sendJson(res, 200, withUsage(result, ip, isCustomKey));
   } finally {
     lease.release();
@@ -250,6 +255,36 @@ export async function handleRequest(req, res) {
       return sendJson(res, 200, await getAnalyticsStats());
     }
 
+    if (req.method === 'POST' && pathname === '/api/admin/reset-limits') {
+      if (!verifyAdmin(req)) {
+        return sendJson(res, 401, { error: { message: '관리자 로그인이 필요합니다.' } });
+      }
+      const body = await readBody(req);
+      const targetIp = String(body?.ip || '').trim();
+      const action = String(body?.action || '').trim(); // 'cooldown' or 'runs' or 'all'
+
+      if (!targetIp) {
+        return sendJson(res, 400, { error: { message: '대상 IP가 지정되지 않았습니다.' } });
+      }
+
+      if (action === 'cooldown' || action === 'all') {
+        await limiter.resetCooldown(targetIp);
+      }
+      if (action === 'runs' || action === 'all') {
+        await limiter.resetDailyRuns(targetIp);
+      }
+
+      return sendJson(res, 200, {
+        ok: true,
+        message: action === 'cooldown'
+          ? `${targetIp}의 분석 대기시간이 즉시 초기화되었습니다.`
+          : action === 'runs'
+          ? `${targetIp}의 일일 10회 한도가 즉시 초기화되었습니다.`
+          : `${targetIp}의 대기시간 및 10회 한도가 모두 초기화되었습니다.`,
+        usage: limiter.usage(targetIp),
+      });
+    }
+
     if (req.method === 'POST' && pathname === '/api/admin/logout') {
       revokeAdmin(req);
       res.setHeader('Set-Cookie', 'admin_token=; Path=/; HttpOnly; Max-Age=0');
@@ -257,8 +292,10 @@ export async function handleRequest(req, res) {
     }
 
     if (req.method === 'GET' && pathname === '/api/usage') {
+      const ip = requestIp(req);
+      await limiter.syncFromDb(ip);
       return sendJson(res, 200, {
-        usage: limiter.usage(requestIp(req)),
+        usage: limiter.usage(ip),
         limits: LIMITS,
         cost: COST,
       });
@@ -288,14 +325,14 @@ export async function handleRequest(req, res) {
       let body = {};
       try { body = await readBody(req); } catch {}
       const ip = requestIp(req);
-      const code = limiter.createReferral(ip, body?.shareData || null);
+      const code = await limiter.createReferral(ip, body?.shareData || null);
       return sendJson(res, 200, { ok: true, code });
     }
 
     if (req.method === 'POST' && pathname === '/api/referral/visit') {
       const body = await readBody(req);
       const ip = requestIp(req);
-      const result = limiter.redeemReferral(String(body.refCode || ''), ip);
+      const result = await limiter.redeemReferral(String(body?.refCode || ''), ip);
       return sendJson(res, 200, result);
     }
 

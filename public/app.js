@@ -148,6 +148,60 @@ function showToast(message) {
   }, 3400);
 }
 
+// 모바일 브라우저, 카카오톡 인앱 브라우저 및 HTTP 환경에서도 안전한 클립보드 복사 유틸
+async function copyToClipboard(text, fallbackPromptMsg = '아래 내용을 복사하세요:') {
+  if (!text) return false;
+
+  // 1. 최신 Clipboard API 시도
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      console.warn('Clipboard writeText failed, trying fallback', e);
+    }
+  }
+
+  // 2. execCommand fallback 시도 (모바일 Safari, 인앱 브라우저, 비보안 컨텍스트 호환)
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = `${window.pageYOffset || document.documentElement.scrollTop || 0}px`;
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const success = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (success) return true;
+  } catch (e) {
+    console.warn('execCommand copy failed', e);
+  }
+
+  // 3. 사용자 직접 복사 프롬프트
+  try {
+    window.prompt(fallbackPromptMsg, text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 모바일 화면(폭 960px 이하)에서 분석 시작 시 결과 패널로 부드럽게 스크롤
+function scrollToResults(targetId = 'results') {
+  if (window.innerWidth <= 960) {
+    const target = document.getElementById(targetId);
+    if (target) {
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    }
+  }
+}
+
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -160,6 +214,10 @@ function formatHms(seconds) {
   const s = seconds % 60;
   return `${h}시간 ${String(m).padStart(2, '0')}분 ${String(s).padStart(2, '0')}초`;
 }
+
+// ==================================================================
+// 사용량 초과 및 전역 한도 처리
+// ==================================================================
 
 function handleQuotaExhausted(resetInSec) {
   state.quotaExhausted = true;
@@ -528,11 +586,14 @@ async function findSpeakers() {
   state.conversation = conversation;
   setBusy(true, '인물 찾는 중…');
   renderLoading('대화에서 등장인물을 찾는 중', '이름과 발화 수만 뽑습니다. 몇 초면 끝납니다.');
+  scrollToResults('results');
 
   try {
     const res = await fetch('/api/speakers', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         conversation,
         model: state.defaultModel || 'deepseek/deepseek-v4-flash',
@@ -556,8 +617,9 @@ async function findSpeakers() {
     }
 
     if (!state.hasCustomKey) {
-      const cooldownSec = data.usage?.step1CooldownSec || 600;
+      const cooldownSec = data.usage?.cooldownRemainingSec || data.usage?.step1CooldownSec || 600;
       setCooldown(cooldownSec);
+      renderQuota(data);
     } else {
       updateCooldownUI();
     }
@@ -892,7 +954,116 @@ function axisCard(axis, threshold) {
    공유 기능 (카카오톡 / 클립보드 / Web Share API / 친구 초대 어드밴티지)
    ================================================================== */
 
+function compactMbtiData(shareData) {
+  return {
+    t: 'm',
+    tt: shareData.title,
+    s: shareData.singlePerson,
+    sp: (shareData.results || []).map((r) => ({
+      n: r.name,
+      tp: r.type,
+      c: r.overallConfidence,
+      ds: r.dataSufficiency,
+      sm: r.summary,
+      ax: (r.axes || []).map((a) => ({
+        ax: a.axis,
+        p: a.pole,
+        c: a.confidence,
+        e: a.estimable,
+        ev: (a.evidence || []).slice(0, 2),
+        r: a.reasoning,
+      })),
+      tr: r.traits || [],
+      cv: r.caveats || '',
+    })),
+  };
+}
+
+function uncompactMbtiData(c) {
+  const results = (c.sp || []).map((r) => ({
+    name: r.n,
+    type: r.tp,
+    overallConfidence: r.c,
+    dataSufficiency: r.ds || 60,
+    summary: r.sm,
+    axes: (r.ax || []).map((a) => ({
+      axis: a.ax,
+      pole: a.p,
+      confidence: a.c,
+      estimable: a.e,
+      evidence: a.ev || [],
+      reasoning: a.r || '',
+    })),
+    traits: r.tr || [],
+    caveats: r.cv || '',
+  }));
+  return {
+    type: 'mbti',
+    title: c.tt || '대화 참여자 MBTI 분석 결과',
+    singlePerson: c.s,
+    results,
+    speakerData: {
+      speakers: results.map((r) => ({ name: r.name, lines: 10 })),
+      summary: c.tt,
+    },
+  };
+}
+
+function compactLoveData(shareData) {
+  return {
+    t: 'l',
+    tt: shareData.title,
+    d: shareData.data,
+  };
+}
+
+function uncompactLoveData(c) {
+  return {
+    type: 'love',
+    title: c.tt || '1:1 애정도 분석 결과',
+    data: c.d,
+  };
+}
+
+function encodeShareData(shareData) {
+  try {
+    const compact = shareData.type === 'love' ? compactLoveData(shareData) : compactMbtiData(shareData);
+    const json = JSON.stringify(compact);
+    const bytes = new TextEncoder().encode(json);
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  } catch (e) {
+    console.warn('Failed to encode shareData', e);
+    return '';
+  }
+}
+
+function decodeShareData(encoded) {
+  try {
+    const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const json = new TextDecoder('utf-8').decode(bytes);
+    const parsed = JSON.parse(json);
+    if (parsed.t === 'l') return uncompactLoveData(parsed);
+    if (parsed.t === 'm') return uncompactMbtiData(parsed);
+    return parsed;
+  } catch (e) {
+    console.warn('Failed to decode shareData', e);
+    return null;
+  }
+}
+
 async function getReferralUrl(shareData = null) {
+  const base = window.location.origin || `${window.location.protocol}//${window.location.host}`;
+  let code = '';
   try {
     const res = await fetch('/api/referral/create', {
       method: 'POST',
@@ -901,13 +1072,14 @@ async function getReferralUrl(shareData = null) {
     });
     const data = await res.json();
     if (data?.ok && data.code) {
-      const base = window.location.origin || `${window.location.protocol}//${window.location.host}`;
-      return `${base}/?ref=${data.code}`;
+      code = data.code;
     }
   } catch (err) {
     console.warn('Failed to get referral code', err);
   }
-  return window.location.origin || window.location.href;
+
+  const url = code ? `${base}/?ref=${code}` : base;
+  return url;
 }
 
 async function shareResult(person = null) {
@@ -954,22 +1126,11 @@ async function shareResult(person = null) {
     }
   }
 
-  // 2. 데스크톱 및 일반 브라우저: 클립보드 복사
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
+  // 2. 데스크톱 및 모바일 클립보드 복사
+  const copied = await copyToClipboard(text, '아래 분석 결과를 복사하여 카카오톡에 공유하세요:');
+  if (copied) {
     showToast('📋 초대 링크가 포함된 분석 결과가 복사되었습니다! 카톡에 공유하여 5분 단축 혜택을 받으세요.');
-  } catch {
+  } else {
     showToast('결과 복사에 실패했습니다.');
   }
 }
@@ -1161,6 +1322,7 @@ async function runSelected() {
   for (const speaker of state.speakerData.speakers) state.status.set(speaker.name, 'pending');
 
   setBusy(true, '판독 중…');
+  scrollToResults('results');
   state.runStartedAt = Date.now();
   if (state.runTimer) clearInterval(state.runTimer);
   state.runTimer = setInterval(() => {
@@ -1309,8 +1471,8 @@ function bindDropzone() {
 
 function renderQuota(payload) {
   const node = $('quota');
-  const usage = payload?.usage;
-  if (!usage) return;
+  if (!node) return;
+  const usage = payload?.usage || {};
 
   // 전체 일일 한도 소진 감지 시 즉시 팝업 및 화면 차단
   if (usage.quotaExhausted || (usage.globalRemaining != null && usage.globalRemaining <= 0)) {
@@ -1318,16 +1480,20 @@ function renderQuota(payload) {
     return;
   }
 
-  if (usage.cooldownRemainingSec > 0) {
-    setCooldown(usage.cooldownRemainingSec);
+  // 쿨다운 복원: 서버 DB 쿨다운 복원 (새로고침 시에도 서버 DB 값 기반 유지)
+  const serverMbtiCd = usage.cooldownRemainingSec || 0;
+  if (serverMbtiCd > 0 && !state.cooldownTimer) {
+    setCooldown(serverMbtiCd);
   }
-  if (usage.loveCooldownRemainingSec > 0) {
-    setLoveCooldown(usage.loveCooldownRemainingSec);
+
+  const serverLoveCd = usage.loveCooldownRemainingSec || 0;
+  if (serverLoveCd > 0 && !state.loveCooldownTimer) {
+    setLoveCooldown(serverLoveCd);
   }
 
   node.hidden = false;
-  const dailyRemaining = usage.dailyRemaining ?? 10;
   const dailyLimit = usage.dailyLimit ?? 10;
+  const dailyRemaining = usage.dailyRemaining != null ? usage.dailyRemaining : Math.max(0, dailyLimit - (usage.runsToday || 0));
 
   let message = '';
   if (state.hasCustomKey) {
@@ -1337,17 +1503,38 @@ function renderQuota(payload) {
     message = ` · 오늘 무료 분석 한도(${dailyLimit}회)를 모두 사용하셨습니다 (내일 자정 초기화)`;
     node.classList.add('is-out');
     node.classList.remove('is-low');
+    const analyzeBtn = $('analyze');
+    const loveBtn = $('analyze-love');
+    if (analyzeBtn && !state.busy) {
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = '오늘 무료 한도 마감 (내일 자정 초기화)';
+    }
+    if (loveBtn && !state.loveBusy) {
+      loveBtn.disabled = true;
+      loveBtn.textContent = '오늘 무료 한도 마감 (내일 자정 초기화)';
+    }
   } else {
-    const bonusTag = usage.hasReferralBonus ? ' · [친구 초대 쿨다운 5분 단축 적용 중⚡]' : '';
-    message = ` · 오늘 남은 횟수: ${dailyRemaining}회 / ${dailyLimit}회 (10분 쿨다운)${bonusTag}`;
+    message = ` · 오늘 남은 횟수: ${dailyRemaining}회 / ${dailyLimit}회 (10분 쿨다운)`;
     node.classList.toggle('is-low', dailyRemaining <= 2);
     node.classList.remove('is-out');
   }
 
-  node.replaceChildren(
+  const mainLine = el('div', { class: 'quota__main' }, [
     el('strong', { text: '무료 한도' }),
     el('span', { text: message }),
-  );
+  ]);
+
+  const children = [mainLine];
+
+  if (!state.hasCustomKey && usage.hasReferralBonus) {
+    children.push(
+      el('div', { class: 'quota__bonus' }, [
+        el('span', { text: '⚡ 친구 초대 쿨다운 5분 단축 적용 중' }),
+      ]),
+    );
+  }
+
+  node.replaceChildren(...children);
 }
 
 async function refreshQuota() {
@@ -1380,7 +1567,8 @@ async function refreshQuota() {
       }
     }
   } catch {
-    /* 한도 표시는 실패해도 조용히 넘어간다 */
+    /* 한도 표시는 실패해도 로컬 상태로 유지 */
+    renderQuota(null);
   }
 }
 
@@ -1416,11 +1604,11 @@ async function copyInviteLink() {
       ? `[톡스캐너] ${shareData.title}를 확인해 보세요! (접속 시 대기 5분 단축 ⚡)\n${url}`
       : `[톡스캐너] 이 링크로 접속하면 대기 시간이 5분 단축됩니다! ⚡\n${url}`;
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(shareText);
+    const copied = await copyToClipboard(shareText, '아래 초대 링크를 복사하여 친구에게 전달하세요:');
+    if (copied) {
       showToast('🎉 5분 단축 초대 링크가 복사되었습니다! 친구에게 보내거나 새 탭에서 열면 즉시 5분이 단축됩니다. ⚡');
     } else {
-      prompt('아래 초대 링크를 복사하여 친구에게 전달하세요:', url);
+      showToast('초대 링크 복사에 실패했습니다.');
     }
   } catch {
     showToast('초대 링크 생성 중 오류가 발생했습니다.');
@@ -1469,6 +1657,13 @@ function renderSharedMbti(shareData) {
   const body = $('results-body');
   if (!body) return;
 
+  const newBtn = el('button', {
+    class: 'btn btn--primary btn--sm',
+    attrs: { type: 'button' },
+    text: '나도 새 대화 분석하기',
+  });
+  newBtn.addEventListener('click', () => clearSharedView());
+
   const banner = el('div', { class: 'shared-result-banner' }, [
     el('div', { class: 'shared-result-banner__content' }, [
       el('span', { class: 'shared-result-banner__icon', text: '💬' }),
@@ -1477,45 +1672,79 @@ function renderSharedMbti(shareData) {
         el('p', { text: '참여자들의 4축 MBTI 성향 분석 결과입니다. (초대 혜택 5분 단축 적용됨 ⚡)' }),
       ]),
     ]),
-    el('button', {
-      class: 'btn btn--primary btn--sm',
-      attrs: { type: 'button' },
-      text: '나도 새 대화 분석하기',
-      listeners: {
-        click: () => clearSharedView(),
-      },
-    }),
+    newBtn,
   ]);
   body.prepend(banner);
+}
+
+// 단순 친구 초대 링크로 접속했을 때 상단 안내 배너 표시
+function renderInviteWelcomeBanner() {
+  const container = document.querySelector('.views-container');
+  if (!container || document.getElementById('invite-welcome-banner')) return;
+
+  const banner = el('div', {
+    class: 'shared-result-banner',
+    attrs: { id: 'invite-welcome-banner', style: 'margin: 12px 14px 0;' },
+  }, [
+    el('div', { class: 'shared-result-banner__content' }, [
+      el('span', { class: 'shared-result-banner__icon', text: '🎁' }),
+      el('div', {}, [
+        el('strong', { text: '친구 초대 링크로 접속하셨습니다!' }),
+        el('p', { text: '분석 대기 시간 5분 단축 혜택이 적용되었습니다. 아래에 대화를 입력하고 무료 분석을 시작해 보세요! ⚡' }),
+      ]),
+    ]),
+  ]);
+  container.prepend(banner);
 }
 
 async function checkReferralParam() {
   const params = new URLSearchParams(window.location.search);
   const ref = params.get('ref');
-  if (!ref) return;
+  const d = params.get('d');
 
-  try {
-    const res = await fetch('/api/referral/visit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refCode: ref }),
-    });
-    if (data?.ok) {
-      if (data.rewardApplied) {
-        showToast('🎉 친구 초대로 접속하셨습니다! 분석 쿨다운 5분 단축 혜택이 적용되었습니다. ⚡');
-        refreshQuota();
-      } else if (data.isSelf) {
-        showToast('ℹ️ 본인 IP 초대 링크로 접속하셨습니다. (친구가 다른 기기/IP에서 접속해야 5분 단축이 적용됩니다)');
+  let resolvedShareData = null;
+
+  // 1. URL 자체에 포함된 인코딩 데이터가 있으면 즉시 복원 (서버리스 인스턴스 무관하게 100% 보장)
+  if (d) {
+    resolvedShareData = decodeShareData(d);
+  }
+
+  // 2. 서버에 방문 기록 및 쿨다운 단축(5분) 적용 요청
+  if (ref) {
+    try {
+      const res = await fetch('/api/referral/visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refCode: ref }),
+      });
+      const data = await res.json();
+      if (data?.ok) {
+        if (data.rewardApplied) {
+          showToast('🎉 친구 초대로 접속하셨습니다! 분석 쿨다운 5분 단축 혜택이 적용되었습니다. ⚡');
+          refreshQuota();
+        } else if (data.isSelf) {
+          showToast('ℹ️ 본인 IP 초대 링크로 접속하셨습니다. (친구가 다른 기기/IP에서 접속해야 5분 단축이 적용됩니다)');
+        }
       }
+      if (!resolvedShareData && data?.shareData) {
+        resolvedShareData = data.shareData;
+      }
+    } catch (err) {
+      console.warn('Referral check error', err);
     }
-    if (data?.shareData) {
-      renderSharedResult(data.shareData);
+  }
+
+  // 3. 복원된 공유 결과가 있으면 화면에 렌더링하고 모바일 화면에서도 결과창으로 스크롤!
+  if (resolvedShareData) {
+    renderSharedResult(resolvedShareData);
+    if (resolvedShareData.type === 'love') {
+      scrollToResults('love-results');
     } else {
-      // 공유 데이터가 없는 일반 리퍼럴 링크일 때만 정리
-      window.history.replaceState({}, '', window.location.pathname);
+      scrollToResults('results');
     }
-  } catch (err) {
-    console.warn('Referral check error', err);
+  } else if (ref && !d) {
+    // 결과 데이터가 없는 단순 친구 초대 링크로 들어왔을 때 환영 배너 표시
+    renderInviteWelcomeBanner();
   }
 }
 
@@ -1865,11 +2094,14 @@ async function analyzeLove() {
     '1:1 대화 속 감정과 호감도를 스캔하는 중입니다…',
     '두 사람의 호칭, 리액션 빈도, 감정 밸런스 및 기간별 애정도 추이를 산출하고 있습니다.',
   );
+  scrollToResults('love-results');
 
   try {
     const res = await fetch('/api/analyze-love', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         conversation,
         model: state.defaultModel || 'deepseek/deepseek-v4-flash',
@@ -1896,11 +2128,9 @@ async function analyzeLove() {
 
     state.loveData = payload;
     if (!state.hasCustomKey) {
-      if (payload.usage?.loveCooldownRemainingSec) {
-        setLoveCooldown(payload.usage.loveCooldownRemainingSec);
-      } else {
-        setLoveCooldown(600); // 10분 기본 쿨다운
-      }
+      const loveCd = payload.usage?.loveCooldownRemainingSec || 600;
+      setLoveCooldown(loveCd);
+      renderQuota(payload);
     } else {
       updateLoveCooldownUI();
     }
@@ -2155,7 +2385,8 @@ function renderLoveResults(data, isShared = false) {
       });
       const refData = await res.json();
       const code = refData?.code || '';
-      const shareUrl = `${window.location.origin}${window.location.pathname}?ref=${code}`;
+      const base = `${window.location.origin}${window.location.pathname}`;
+      const shareUrl = code ? `${base}?ref=${code}` : base;
       const shareText = `[톡스캐너] ${charA.name} ❤️ ${charB.name} 1:1 애정도 분석 결과 (${data.overallAffectionScore}%)\n${shareUrl}`;
 
       if (navigator.share && typeof navigator.share === 'function') {
@@ -2172,8 +2403,8 @@ function renderLoveResults(data, isShared = false) {
         }
       }
 
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(shareText);
+      const copied = await copyToClipboard(shareText, '아래 1:1 애정 분석 결과를 복사하여 공유하세요:');
+      if (copied) {
         showToast('🎉 애정 분석 결과와 초대 링크가 복사되었습니다! 친구가 접속 시 대기 시간이 5분 단축됩니다. ⚡');
       } else {
         showToast('링크: ' + shareUrl);
@@ -2335,6 +2566,13 @@ function buildLoveSvg(data, filter, charA, charB, tooltip) {
       const pctY = ((Math.min(yA, yB) - 10) / svgH) * 100;
       tooltip.style.left = `${pctX}%`;
       tooltip.style.top = `${pctY}%`;
+      if (pctX < 22) {
+        tooltip.style.transform = 'translate(-10%, -115%)';
+      } else if (pctX > 78) {
+        tooltip.style.transform = 'translate(-90%, -115%)';
+      } else {
+        tooltip.style.transform = 'translate(-50%, -115%)';
+      }
     };
 
     const hideTip = () => {
@@ -2343,10 +2581,9 @@ function buildLoveSvg(data, filter, charA, charB, tooltip) {
 
     trigger.addEventListener('mouseenter', showTip);
     trigger.addEventListener('mouseleave', hideTip);
-    trigger.addEventListener('touchstart', (e) => {
-      e.preventDefault();
+    trigger.addEventListener('touchstart', () => {
       showTip();
-    });
+    }, { passive: true });
 
     svg.appendChild(trigger);
   });
@@ -2390,28 +2627,37 @@ function bindLoveDropzone() {
   });
 }
 
-function loadLoveFile(file) {
+async function loadLoveFile(file) {
   const info = $('love-file-info');
   const chat = $('love-chat');
   if (!file || !chat) return;
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    chat.value = reader.result || '';
+  if (file.size > MAX_FILE_BYTES) {
+    if (info) {
+      info.hidden = false;
+      info.classList.add('is-error');
+      info.textContent = `파일이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 5MB 이하만 가능합니다.`;
+    }
+    return;
+  }
+
+  try {
+    const text = await decodeFile(file);
+    chat.value = text;
     updateLoveCount();
     if (info) {
       info.hidden = false;
-      info.textContent = `불러온 파일: ${file.name} (${Math.round(file.size / 1024)}KB)`;
+      info.classList.remove('is-error');
+      info.textContent = `불러온 파일: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`;
     }
-    chat.focus();
-  };
-  reader.onerror = () => {
+  } catch (err) {
     if (info) {
       info.hidden = false;
-      info.textContent = '파일을 읽지 못했습니다.';
+      info.classList.add('is-error');
+      info.textContent = '파일을 읽지 못했습니다. 올바른 텍스트 파일인지 확인해 주세요.';
     }
-  };
-  reader.readAsText(file);
+    console.error(err);
+  }
 }
 
 function bindLoveEvents() {
@@ -2459,6 +2705,7 @@ function bindEvents() {
 loadCustomApiKey();
 bindApiKeyEvents();
 loadModels();
+renderQuota(null); // 로컬 저장된 남은 횟수 및 쿨다운 즉시 복원
 refreshQuota();
 bindEvents();
 bindDropzone();

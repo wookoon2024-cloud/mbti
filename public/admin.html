@@ -391,6 +391,43 @@
       font-size: 14px;
     }
 
+    .btn-ctrl {
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .btn-ctrl--cooldown {
+      background: rgba(255, 184, 0, 0.15);
+      color: #ffb800;
+      border-color: rgba(255, 184, 0, 0.4);
+    }
+    .btn-ctrl--cooldown:hover {
+      background: #ffb800;
+      color: #000;
+    }
+    .btn-ctrl--runs {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.4);
+      margin-left: 5px;
+    }
+    .btn-ctrl--runs:hover {
+      background: #38bdf8;
+      color: #000;
+    }
+    .btn-ctrl:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     @media (max-width: 768px) {
       #dashboard-view { padding: 14px; }
       .bar-row { grid-template-columns: 80px 1fr 100px; }
@@ -488,6 +525,15 @@
         <div class="panel-title">🟢 실시간 접속자 목록 (<span id="active-count-badge">0</span>명)</div>
         <span style="font-size: 12px; color: var(--text-muted);">5분 이내 활동 세션 (자동 갱신)</span>
       </div>
+
+      <!-- IP 직접 초기화 바 -->
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; padding: 10px 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 8px; flex-wrap: wrap;">
+        <span style="font-size: 12px; font-weight: 600; color: var(--text-bright);">🎯 특정 IP 직접 초기화:</span>
+        <input type="text" id="manual-reset-ip" placeholder="IP 주소 입력 (예: 114.207.10.12)" style="flex: 1; min-width: 180px; max-width: 240px; padding: 6px 10px; font-size: 12px; background: #0d1117; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text-bright);">
+        <button class="btn-ctrl btn-ctrl--cooldown" onclick="manualReset('cooldown')">⚡ 분석 대기중 초기화 (바로분석)</button>
+        <button class="btn-ctrl btn-ctrl--runs" onclick="manualReset('runs')">🔄 10회 다시 초기화</button>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -496,10 +542,11 @@
               <th>최근 활동</th>
               <th>최근 경로/기능</th>
               <th>접속 환경 (User-Agent)</th>
+              <th style="text-align: right; min-width: 260px;">관리 작업</th>
             </tr>
           </thead>
           <tbody id="active-sessions-tbody">
-            <tr><td colspan="4" class="empty-state">현재 접속 중인 사용자가 없습니다.</td></tr>
+            <tr><td colspan="5" class="empty-state">현재 접속 중인 사용자가 없습니다.</td></tr>
           </tbody>
         </table>
       </div>
@@ -577,13 +624,7 @@
     const loginForm = document.getElementById('login-form');
     const loginErr = document.getElementById('login-err');
 
-    // 이전 캐시 데이터 즉시 복원 (화면 깜빡임 및 0 초기화 방지)
-    try {
-      const savedStats = localStorage.getItem('cached_admin_stats');
-      if (savedStats) {
-        cachedStats = JSON.parse(savedStats);
-      }
-    } catch {}
+
 
     function checkAuth() {
       if (authToken) {
@@ -679,9 +720,6 @@
         authFailCount = 0;
         const data = await res.json();
         cachedStats = data;
-        try {
-          localStorage.setItem('cached_admin_stats', JSON.stringify(data));
-        } catch {}
         renderDashboard(data);
       } catch (err) {
         console.error('Failed to fetch admin stats:', err);
@@ -706,16 +744,23 @@
       // 2. 현재 접속 세션 목록
       const sessionTbody = document.getElementById('active-sessions-tbody');
       if (data.activeSessions && data.activeSessions.length > 0) {
-        sessionTbody.innerHTML = data.activeSessions.map(s => `
+        sessionTbody.innerHTML = data.activeSessions.map(s => {
+          const targetIp = s.rawIp || s.ip;
+          return `
           <tr>
             <td style="font-family: monospace; font-weight: 600; color: var(--text-bright);">${escapeHtml(s.ip)}</td>
             <td><span style="color: var(--lime);">${s.lastSeenSec}초 전</span></td>
             <td><code>${escapeHtml(s.path || '/')}</code></td>
-            <td style="font-size: 11px; color: var(--text-muted); max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(s.userAgent)}">${escapeHtml(s.userAgent || '알 수 없음')}</td>
+            <td style="font-size: 11px; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(s.userAgent)}">${escapeHtml(s.userAgent || '알 수 없음')}</td>
+            <td style="text-align: right; white-space: nowrap;">
+              <button class="btn-ctrl btn-ctrl--cooldown" onclick="resetUserCooldown('${escapeHtml(targetIp)}')">⚡ 분석 대기중 초기화</button>
+              <button class="btn-ctrl btn-ctrl--runs" onclick="resetUserRuns('${escapeHtml(targetIp)}')">🔄 10회 다시 초기화</button>
+            </td>
           </tr>
-        `).join('');
+        `;
+        }).join('');
       } else {
-        sessionTbody.innerHTML = '<tr><td colspan="4" class="empty-state">현재 접속 중인 사용자가 없습니다.</td></tr>';
+        sessionTbody.innerHTML = '<tr><td colspan="5" class="empty-state">현재 접속 중인 사용자가 없습니다.</td></tr>';
       }
 
       // 3. 기간별 차트 & 테이블 렌더링
@@ -817,6 +862,53 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    }
+
+    window.resetUserCooldown = async function(targetIp) {
+      if (!targetIp) return;
+      if (!confirm(`[${targetIp}]\n해당 사용자의 분석 대기시간(쿨다운)을 즉시 초기화하여 바로 분석 가능하게 변경하시겠습니까?`)) return;
+      await executeReset(targetIp, 'cooldown');
+    };
+
+    window.resetUserRuns = async function(targetIp) {
+      if (!targetIp) return;
+      if (!confirm(`[${targetIp}]\n해당 사용자의 오늘 분석 횟수를 초기화하여 다시 10회 분석 가능하게 변경하시겠습니까?`)) return;
+      await executeReset(targetIp, 'runs');
+    };
+
+    window.manualReset = async function(action) {
+      const input = document.getElementById('manual-reset-ip');
+      const targetIp = (input?.value || '').trim();
+      if (!targetIp) {
+        alert('대상 IP 주소를 입력해 주세요.');
+        input?.focus();
+        return;
+      }
+      const label = action === 'cooldown' ? '분석 대기시간 해제 (바로분석)' : '오늘 10회 한도 초기화';
+      if (!confirm(`[${targetIp}]\n${label}를 진행하시겠습니까?`)) return;
+      await executeReset(targetIp, action);
+    };
+
+    async function executeReset(targetIp, action) {
+      try {
+        const res = await fetch('/api/admin/reset-limits', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + authToken,
+          },
+          body: JSON.stringify({ ip: targetIp, action }),
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          alert('✅ ' + (data.message || '성공적으로 초기화되었습니다.'));
+          fetchStats();
+        } else {
+          alert('❌ 초기화 실패: ' + (data.error?.message || '알 수 없는 오류'));
+        }
+      } catch (err) {
+        alert('서버 통신 실패: ' + err.message);
+      }
     }
 
     checkAuth();

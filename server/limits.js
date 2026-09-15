@@ -12,6 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { pgPool, ensureLimitsTables } from './db.js';
 
 const REFERRALS_FILE = process.env.VERCEL
   ? path.resolve('/tmp', 'referrals.json')
@@ -38,6 +39,32 @@ function saveReferralsToDisk(map) {
     fs.writeFileSync(REFERRALS_FILE, JSON.stringify(obj, null, 2), 'utf-8');
   } catch (err) {
     console.warn('Failed to save referrals to disk:', err.message);
+  }
+}
+
+const USAGE_FILE = process.env.VERCEL
+  ? path.resolve('/tmp', 'limits_usage.json')
+  : path.resolve('logs', 'limits_usage.json');
+
+function loadUsageFromDisk() {
+  try {
+    if (fs.existsSync(USAGE_FILE)) {
+      const content = fs.readFileSync(USAGE_FILE, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.warn('Failed to load usage limits from disk:', err.message);
+  }
+  return null;
+}
+
+function saveUsageToDisk(data) {
+  try {
+    const dir = path.dirname(USAGE_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(USAGE_FILE, JSON.stringify(data), 'utf-8');
+  } catch (err) {
+    console.warn('Failed to save usage limits to disk:', err.message);
   }
 }
 
@@ -75,16 +102,82 @@ export const LIMITS = {
 };
 
 export function createLimiter(config = LIMITS) {
+  const diskUsage = loadUsageFromDisk() || {};
   const perIp = new Map();
   const activeByIp = new Map();
-  const step1LastByIp = new Map();
-  const loveLastByIp = new Map();
-  const dailyRunsByIp = new Map(); // IP별 하루 분석 횟수 (date, count)
-  const bonusDiscountByIp = new Map(); // IP별 쿨다운 단축 혜택 보유 여부
+  const step1LastByIp = new Map(Object.entries(diskUsage.step1Last || {}));
+  const loveLastByIp = new Map(Object.entries(diskUsage.loveLast || {}));
+  const dailyRunsByIp = new Map(Object.entries(diskUsage.dailyRuns || {})); // IP별 하루 분석 횟수 (date, count)
+  const bonusDiscountByIp = new Map(Object.entries(diskUsage.bonusDiscount || {})); // IP별 쿨다운 단축 혜택 보유 여부
   const referrals = loadReferralsFromDisk(); // refCode -> { code, creatorIp, createdAt, redeemedCount, shareData }
   let active = 0;
   let globalDay = { start: startOfDay(Date.now()), used: 0 };
   let manualQuotaExhausted = false; // API 키 크레딧 부족 시 전역 잠금
+
+  function persistUsage() {
+    saveUsageToDisk({
+      step1Last: Object.fromEntries(step1LastByIp),
+      loveLast: Object.fromEntries(loveLastByIp),
+      dailyRuns: Object.fromEntries(dailyRunsByIp),
+      bonusDiscount: Object.fromEntries(bonusDiscountByIp),
+    });
+  }
+
+  async function syncFromDb(ip) {
+    if (!pgPool || !ip) return;
+    try {
+      await ensureLimitsTables();
+      const today = startOfDay(Date.now());
+      const todayStr = new Date(today).toISOString().slice(0, 10);
+      const res = await pgPool.query(`SELECT * FROM talkscanner_limits WHERE ip = $1`, [ip]);
+      if (res.rows && res.rows.length > 0) {
+        const row = res.rows[0];
+        if (row.date === todayStr) {
+          dailyRunsByIp.set(ip, { date: today, count: row.runs_today || 0 });
+        } else {
+          dailyRunsByIp.set(ip, { date: today, count: 0 });
+        }
+        if (row.step1_last) step1LastByIp.set(ip, Number(row.step1_last));
+        if (row.love_last) loveLastByIp.set(ip, Number(row.love_last));
+        if (row.has_referral_bonus) {
+          bonusDiscountByIp.set(ip, true);
+        } else {
+          bonusDiscountByIp.delete(ip);
+        }
+        persistUsage();
+      }
+    } catch (e) {
+      console.warn('[DB] syncFromDb error:', e.message);
+    }
+  }
+
+  async function syncToDb(ip) {
+    if (!pgPool || !ip) return;
+    try {
+      await ensureLimitsTables();
+      const today = startOfDay(Date.now());
+      const todayStr = new Date(today).toISOString().slice(0, 10);
+      const runs = dailyRunsByIp.get(ip);
+      const runsCount = (runs && runs.date === today) ? runs.count : 0;
+      const step1Last = step1LastByIp.get(ip) || 0;
+      const loveLast = loveLastByIp.get(ip) || 0;
+      const hasBonus = Boolean(bonusDiscountByIp.get(ip));
+
+      await pgPool.query(`
+        INSERT INTO talkscanner_limits (ip, date, runs_today, step1_last, love_last, has_referral_bonus, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT (ip) DO UPDATE SET
+          date = EXCLUDED.date,
+          runs_today = EXCLUDED.runs_today,
+          step1_last = EXCLUDED.step1_last,
+          love_last = EXCLUDED.love_last,
+          has_referral_bonus = EXCLUDED.has_referral_bonus,
+          updated_at = NOW()
+      `, [ip, todayStr, runsCount, step1Last, loveLast, hasBonus]);
+    } catch (e) {
+      console.warn('[DB] syncToDb error:', e.message);
+    }
+  }
 
   function rollDay(now) {
     const start = startOfDay(now);
@@ -109,6 +202,8 @@ export function createLimiter(config = LIMITS) {
     } else {
       entry.count += 1;
     }
+    persistUsage();
+    syncToDb(ip).catch(() => {});
   }
 
   function bucket(ip, now) {
@@ -251,13 +346,15 @@ export function createLimiter(config = LIMITS) {
     }
 
     if (isStep1) {
-      step1LastByIp.set(ip, now);
+      const hadBonus = bonusDiscountByIp.get(ip);
+      step1LastByIp.set(ip, hadBonus ? now - REWARD_DISCOUNT_MS : now);
       bonusDiscountByIp.delete(ip);
       incrementDailyRuns(ip, now);
     }
 
     if (isLove) {
-      loveLastByIp.set(ip, now);
+      const hadBonus = bonusDiscountByIp.get(ip);
+      loveLastByIp.set(ip, hadBonus ? now - REWARD_DISCOUNT_MS : now);
       bonusDiscountByIp.delete(ip);
       incrementDailyRuns(ip, now);
     }
@@ -282,23 +379,60 @@ export function createLimiter(config = LIMITS) {
     };
   }
 
-  function createReferral(ip, shareData = null) {
+  async function createReferral(ip, shareData = null) {
     const code = 'scout_' + Math.random().toString(36).slice(2, 9);
-    referrals.set(code, {
+    const item = {
       code,
       creatorIp: ip,
       createdAt: Date.now(),
       redeemedCount: 0,
       shareData: shareData || null,
-    });
+    };
+    referrals.set(code, item);
     saveReferralsToDisk(referrals);
+
+    if (pgPool) {
+      try {
+        await ensureLimitsTables();
+        await pgPool.query(`
+          INSERT INTO talkscanner_referrals (code, creator_ip, created_at, redeemed_count, share_data, updated_at)
+          VALUES ($1, $2, $3, 0, $4, NOW())
+          ON CONFLICT (code) DO UPDATE SET
+            share_data = EXCLUDED.share_data,
+            updated_at = NOW()
+        `, [code, ip, item.createdAt, shareData ? JSON.stringify(shareData) : null]);
+      } catch (e) {
+        console.warn('[DB] createReferral error:', e.message);
+      }
+    }
     return code;
   }
 
-  function redeemReferral(code, visitorIp) {
+  async function redeemReferral(code, visitorIp) {
     let ref = referrals.get(code);
+
+    // 1. DB에서 먼저 최신 레코드 조회 (Vercel 다른 인스턴스에서 생성된 경우)
+    if ((!ref || !ref.shareData) && pgPool) {
+      try {
+        await ensureLimitsTables();
+        const res = await pgPool.query(`SELECT * FROM talkscanner_referrals WHERE code = $1`, [code]);
+        if (res.rows && res.rows.length > 0) {
+          const row = res.rows[0];
+          ref = {
+            code: row.code,
+            creatorIp: row.creator_ip,
+            createdAt: Number(row.created_at),
+            redeemedCount: Number(row.redeemed_count),
+            shareData: row.share_data,
+          };
+          referrals.set(code, ref);
+        }
+      } catch (e) {
+        console.warn('[DB] redeemReferral query error:', e.message);
+      }
+    }
+
     if (!ref || !ref.shareData) {
-      // Reload disk just in case
       const diskMap = loadReferralsFromDisk();
       const diskRef = diskMap.get(code);
       if (diskRef) {
@@ -306,13 +440,29 @@ export function createLimiter(config = LIMITS) {
         referrals.set(code, ref);
       }
     }
-    if (!ref) return { ok: false, reason: 'invalid_code' };
+
+    if (!ref) {
+      if (code && code.startsWith('scout_')) {
+        const visitorLast = step1LastByIp.get(visitorIp);
+        if (visitorLast) step1LastByIp.set(visitorIp, visitorLast - REWARD_DISCOUNT_MS);
+        const visitorLoveLast = loveLastByIp.get(visitorIp);
+        if (visitorLoveLast) loveLastByIp.set(visitorIp, visitorLoveLast - REWARD_DISCOUNT_MS);
+        bonusDiscountByIp.set(visitorIp, true);
+        syncToDb(visitorIp).catch(() => {});
+        return { ok: true, rewardApplied: true, isSelf: false, shareData: null };
+      }
+      return { ok: false, reason: 'invalid_code' };
+    }
 
     // 같은 IP 접속 시 자가 초대(Self-referral)로 판정하여 보상 전면 차단
     const isSelf = ref.creatorIp === visitorIp;
 
     if (!isSelf) {
       ref.redeemedCount = (ref.redeemedCount || 0) + 1;
+
+      // DB에서 초대자와 방문자의 최신 한도/쿨다운 상태를 동기화
+      await syncFromDb(ref.creatorIp);
+      await syncFromDb(visitorIp);
 
       // 1. 초대자 IP 쿨다운 5분 단축 (시간 앞당김)
       const creatorLast = step1LastByIp.get(ref.creatorIp);
@@ -324,6 +474,7 @@ export function createLimiter(config = LIMITS) {
         loveLastByIp.set(ref.creatorIp, creatorLoveLast - REWARD_DISCOUNT_MS);
       }
       bonusDiscountByIp.set(ref.creatorIp, true);
+      await syncToDb(ref.creatorIp);
 
       // 2. 방문자 IP에도 쿨다운 단축(5분) 혜택 부여
       const visitorLast = step1LastByIp.get(visitorIp);
@@ -335,7 +486,15 @@ export function createLimiter(config = LIMITS) {
         loveLastByIp.set(visitorIp, visitorLoveLast - REWARD_DISCOUNT_MS);
       }
       bonusDiscountByIp.set(visitorIp, true);
+      await syncToDb(visitorIp);
+
       saveReferralsToDisk(referrals);
+      if (pgPool) {
+        pgPool.query(
+          `UPDATE talkscanner_referrals SET redeemed_count = redeemed_count + 1, updated_at = NOW() WHERE code = $1`,
+          [code],
+        ).catch(() => {});
+      }
     }
 
     return {
@@ -365,6 +524,7 @@ export function createLimiter(config = LIMITS) {
 
     return {
       dailyUsed: runsToday,
+      runsToday,
       dailyLimit: DAILY_ANALYSIS_LIMIT,
       dailyRemaining,
       hourlyUsed: sum(entry.hour),
@@ -376,14 +536,69 @@ export function createLimiter(config = LIMITS) {
       globalResetInSec: secondsUntilTomorrow(now),
       cooldownRemainingSec,
       loveCooldownRemainingSec,
-      step1CooldownSec: Math.floor(cooldownMs / 1000),
       hasReferralBonus: Boolean(bonusDiscountByIp.get(ip)),
       quotaExhausted: exhausted,
-      active,
+      isCustomKeyAvailable: true,
     };
   }
 
-  // 오래된 IP 및 레퍼럴 기록 정리 (프로세스를 붙잡지 않도록 unref)
+  async function resetCooldown(ip) {
+    if (!ip) return;
+    step1LastByIp.delete(ip);
+    loveLastByIp.delete(ip);
+    const entry = perIp.get(ip);
+    if (entry) {
+      entry.hour = [];
+    }
+    persistUsage();
+    if (pgPool) {
+      try {
+        await ensureLimitsTables();
+        const today = startOfDay(Date.now());
+        const todayStr = new Date(today).toISOString().slice(0, 10);
+        await pgPool.query(`
+          INSERT INTO talkscanner_limits (ip, date, step1_last, love_last, updated_at)
+          VALUES ($1, $2, 0, 0, NOW())
+          ON CONFLICT (ip) DO UPDATE SET
+            step1_last = 0,
+            love_last = 0,
+            updated_at = NOW()
+        `, [ip, todayStr]);
+      } catch (e) {
+        console.warn('[DB] resetCooldown error:', e.message);
+      }
+    }
+  }
+
+  async function resetDailyRuns(ip) {
+    if (!ip) return;
+    const today = startOfDay(Date.now());
+    dailyRunsByIp.set(ip, { date: today, count: 0 });
+    const entry = perIp.get(ip);
+    if (entry) {
+      entry.day = [];
+      entry.hour = [];
+    }
+    persistUsage();
+    if (pgPool) {
+      try {
+        await ensureLimitsTables();
+        const todayStr = new Date(today).toISOString().slice(0, 10);
+        await pgPool.query(`
+          INSERT INTO talkscanner_limits (ip, date, runs_today, updated_at)
+          VALUES ($1, $2, 0, NOW())
+          ON CONFLICT (ip) DO UPDATE SET
+            runs_today = 0,
+            date = EXCLUDED.date,
+            updated_at = NOW()
+        `, [ip, todayStr]);
+      } catch (e) {
+        console.warn('[DB] resetDailyRuns error:', e.message);
+      }
+    }
+  }
+
+  // 주기적으로 24시간 지난 IP 기록 청소
   const sweeper = setInterval(() => {
     const now = Date.now();
     for (const [ip, entry] of perIp) {
@@ -397,7 +612,7 @@ export function createLimiter(config = LIMITS) {
   }, 10 * MINUTE);
   sweeper.unref?.();
 
-  return { tryAcquire, usage, createReferral, redeemReferral, setQuotaExhausted, isExhausted, config };
+  return { tryAcquire, usage, createReferral, redeemReferral, resetCooldown, resetDailyRuns, setQuotaExhausted, isExhausted, syncFromDb, syncToDb, config };
 }
 
 /**
