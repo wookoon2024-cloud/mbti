@@ -1332,44 +1332,54 @@ async function runSelected() {
 
   let quotaBlocked = false;
 
-  try {
-    for (const speaker of targets) {
-      state.status.set(speaker.name, 'running');
-      renderFlow();
+  async function analyzeSpeaker(speaker) {
+    state.status.set(speaker.name, 'running');
+    renderFlow();
 
-      try {
-        const res = await fetch('/api/analyze-person', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversation: state.conversation,
-            person: { name: speaker.name, aliases: speaker.aliases },
-            model: state.defaultModel || 'deepseek/deepseek-v4-flash',
-            apiKey: getCustomApiKey() || undefined,
-          }),
-        });
-        const data = await res.json();
+    try {
+      const res = await fetch('/api/analyze-person', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation: state.conversation,
+          person: { name: speaker.name, aliases: speaker.aliases },
+          model: state.defaultModel || 'deepseek/deepseek-v4-flash',
+          apiKey: getCustomApiKey() || undefined,
+        }),
+      });
+      const data = await res.json();
 
-        if (!res.ok) {
-          state.status.set(speaker.name, 'error');
-          state.errors.set(speaker.name, data?.error?.message || `실패 (HTTP ${res.status})`);
-          if (res.status === 429) {
-            quotaBlocked = true;
-            break;
-          }
-        } else {
-          state.results.push(data);
-          state.status.set(speaker.name, 'done');
-          if (!state.activeTab || state.activeTab === speaker.name) state.activeTab = data.name;
-          renderQuota(data);
-        }
-      } catch (err) {
+      if (!res.ok) {
         state.status.set(speaker.name, 'error');
-        state.errors.set(speaker.name, String(err?.message || err));
+        state.errors.set(speaker.name, data?.error?.message || `실패 (HTTP ${res.status})`);
+        if (res.status === 429) {
+          quotaBlocked = true;
+        }
+      } else {
+        state.results.push(data);
+        state.status.set(speaker.name, 'done');
+        if (!state.activeTab || state.activeTab === speaker.name) state.activeTab = data.name;
+        renderQuota(data);
       }
-
-      renderFlow();
+    } catch (err) {
+      state.status.set(speaker.name, 'error');
+      state.errors.set(speaker.name, String(err?.message || err));
     }
+
+    renderFlow();
+  }
+
+  try {
+    // 2명씩 동시 병렬 판독 (서버 동시성 한도 내 2배 속도 향상)
+    const CONCURRENCY = 2;
+    const queue = [...targets];
+    const workers = Array.from({ length: CONCURRENCY }, async () => {
+      while (queue.length > 0 && !quotaBlocked) {
+        const next = queue.shift();
+        if (next) await analyzeSpeaker(next);
+      }
+    });
+    await Promise.all(workers);
   } finally {
     state.running = false;
     if (state.runTimer) clearInterval(state.runTimer);

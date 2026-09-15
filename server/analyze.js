@@ -476,7 +476,7 @@ export async function analyzePerson({ conversation, person, apiKey, model, wire 
   }
 
   // 대용량 대화(6만자+)에서도 타임아웃 없이 빠르고 정확하게 분석할 수 있도록 대상 인물 발화 중심 압축
-  const filteredText = filterConversationForPerson(text, target.name, 18_000);
+  const filteredText = filterConversationForPerson(text, target.name, 12_000);
 
   const json = await requestJson({
     apiKey,
