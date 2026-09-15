@@ -7,39 +7,45 @@
 :root {
   color-scheme: light;
 
-  /* surfaces */
-  --canvas: oklch(0.974 0.006 80);
-  --surface: oklch(0.998 0.002 80);
-  --surface-2: oklch(0.962 0.008 78);
-  --surface-3: oklch(0.932 0.011 78);
+  /* surfaces — 밝게 */
+  --canvas: oklch(0.986 0.005 85);
+  --surface: oklch(0.999 0.002 85);
+  --surface-2: oklch(0.974 0.008 82);
+  --surface-3: oklch(0.948 0.011 80);
 
   /* text */
-  --ink: oklch(0.225 0.014 60);
-  --ink-soft: oklch(0.430 0.013 62);
-  --muted: oklch(0.575 0.013 65);
+  --ink: oklch(0.245 0.014 60);
+  --ink-soft: oklch(0.455 0.013 62);
+  --muted: oklch(0.535 0.013 65);
 
   /* lines */
-  --border: oklch(0.912 0.008 78);
-  --border-strong: oklch(0.855 0.011 76);
+  --border: oklch(0.928 0.008 78);
+  --border-strong: oklch(0.872 0.011 76);
 
-  /* accent */
-  --accent: oklch(0.525 0.138 33);
-  --accent-hover: oklch(0.470 0.138 33);
-  --accent-soft: oklch(0.952 0.026 40);
-  --accent-line: color-mix(in oklab, var(--accent) 30%, transparent);
-  --on-accent: oklch(0.995 0.004 60);
-  --focus: oklch(0.58 0.16 33);
+  /* accent — 채우기용(밝음)과 텍스트용(진함)을 분리 */
+  --accent: oklch(0.68 0.185 40);
+  --accent-hover: oklch(0.73 0.175 40);
+  --accent-ink: oklch(0.515 0.16 38);
+  --accent-soft: oklch(0.962 0.030 42);
+  --accent-line: color-mix(in oklab, var(--accent) 34%, transparent);
+  --on-accent: oklch(0.215 0.050 40);
+  --focus: oklch(0.550 0.175 38);
 
-  /* confidence bands — lightness decreases as certainty rises, so the
-     ramp survives grayscale. Every band is paired with an icon + label. */
-  --band-high-fg: oklch(0.465 0.115 158);
-  --band-high-bg: oklch(0.952 0.042 158);
-  --band-mid-fg: oklch(0.552 0.118 70);
-  --band-mid-bg: oklch(0.963 0.052 80);
-  --band-low-fg: oklch(0.595 0.148 40);
-  --band-low-bg: oklch(0.956 0.042 45);
-  --band-none-fg: oklch(0.630 0.010 65);
-  --band-none-bg: oklch(0.950 0.005 65);
+  /* scan — 스카우터 렌즈의 라임 그린. 로고·상태점·스캔바에만 쓴다 */
+  --scan: oklch(0.80 0.190 140);
+  --scan-deep: oklch(0.62 0.170 145);
+  --scan-soft: oklch(0.955 0.060 140);
+
+  /* confidence bands — 밝아질수록 확신이 낮다. 색만으로 뜻을 전하지 않도록
+     항상 아이콘 + 라벨과 함께 쓴다. */
+  --band-high-fg: oklch(0.500 0.125 158);
+  --band-high-bg: oklch(0.958 0.045 158);
+  --band-mid-fg: oklch(0.545 0.120 72);
+  --band-mid-bg: oklch(0.968 0.055 82);
+  --band-low-fg: oklch(0.545 0.160 30);
+  --band-low-bg: oklch(0.962 0.040 40);
+  --band-none-fg: oklch(0.535 0.010 65);
+  --band-none-bg: oklch(0.955 0.005 65);
 
   /* radii */
   --r-xs: 6px;
@@ -84,33 +90,38 @@
   :root {
     color-scheme: dark;
 
-    --canvas: oklch(0.185 0.009 65);
-    --surface: oklch(0.228 0.010 65);
-    --surface-2: oklch(0.268 0.011 65);
-    --surface-3: oklch(0.312 0.012 65);
+    --canvas: oklch(0.205 0.009 65);
+    --surface: oklch(0.248 0.010 65);
+    --surface-2: oklch(0.288 0.011 65);
+    --surface-3: oklch(0.325 0.012 65);
 
-    --ink: oklch(0.950 0.006 80);
-    --ink-soft: oklch(0.800 0.009 78);
-    --muted: oklch(0.655 0.011 70);
+    --ink: oklch(0.955 0.006 80);
+    --ink-soft: oklch(0.815 0.009 78);
+    --muted: oklch(0.675 0.011 70);
 
-    --border: oklch(0.315 0.012 65);
-    --border-strong: oklch(0.400 0.014 65);
+    --border: oklch(0.330 0.012 65);
+    --border-strong: oklch(0.415 0.014 65);
 
-    --accent: oklch(0.705 0.132 43);
-    --accent-hover: oklch(0.768 0.132 43);
-    --accent-soft: oklch(0.300 0.048 40);
-    --accent-line: color-mix(in oklab, var(--accent) 38%, transparent);
-    --on-accent: oklch(0.180 0.018 45);
-    --focus: oklch(0.770 0.145 43);
+    --accent: oklch(0.78 0.160 45);
+    --accent-hover: oklch(0.83 0.150 45);
+    --accent-ink: oklch(0.82 0.150 45);
+    --accent-soft: oklch(0.315 0.050 42);
+    --accent-line: color-mix(in oklab, var(--accent) 40%, transparent);
+    --on-accent: oklch(0.190 0.030 45);
+    --focus: oklch(0.82 0.150 45);
 
-    --band-high-fg: oklch(0.805 0.122 158);
-    --band-high-bg: oklch(0.296 0.046 158);
-    --band-mid-fg: oklch(0.820 0.118 80);
-    --band-mid-bg: oklch(0.306 0.046 75);
-    --band-low-fg: oklch(0.795 0.126 45);
-    --band-low-bg: oklch(0.312 0.055 40);
-    --band-none-fg: oklch(0.735 0.010 70);
-    --band-none-bg: oklch(0.298 0.007 65);
+    --scan: oklch(0.86 0.190 140);
+    --scan-deep: oklch(0.72 0.180 143);
+    --scan-soft: oklch(0.320 0.060 140);
+
+    --band-high-fg: oklch(0.820 0.130 158);
+    --band-high-bg: oklch(0.300 0.050 158);
+    --band-mid-fg: oklch(0.830 0.125 82);
+    --band-mid-bg: oklch(0.310 0.050 78);
+    --band-low-fg: oklch(0.810 0.130 45);
+    --band-low-bg: oklch(0.315 0.055 42);
+    --band-none-fg: oklch(0.745 0.010 70);
+    --band-none-bg: oklch(0.300 0.007 65);
 
     --shadow-xs: 0 1px 2px oklch(0.04 0 0 / 0.45);
     --shadow-sm: 0 1px 2px oklch(0.04 0 0 / 0.45), 0 2px 6px oklch(0.04 0 0 / 0.35);
@@ -265,20 +276,17 @@ textarea {
 .brand__mark {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   flex: none;
   border-radius: var(--r-md);
-  background: linear-gradient(
-    155deg,
-    color-mix(in oklab, var(--accent) 84%, white) 0%,
-    var(--accent) 62%
-  );
-  color: var(--on-accent);
-  font-size: var(--step-1);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  box-shadow: var(--shadow-accent), inset 0 1px 0 oklch(1 0 0 / 0.28);
+  background: linear-gradient(158deg, oklch(0.325 0.014 65), oklch(0.205 0.012 62));
+  box-shadow: var(--shadow-sm), 0 0 0 1px oklch(0.30 0.012 65),
+    0 0 16px color-mix(in oklab, var(--scan) 20%, transparent);
+}
+
+.brand__mark svg {
+  display: block;
 }
 
 .brand__text {
@@ -292,7 +300,7 @@ textarea {
 }
 
 .brand__text h1 span {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .brand__text p {
@@ -319,8 +327,8 @@ textarea {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--band-high-fg);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--band-high-fg) 18%, transparent);
+  background: var(--scan-deep);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--scan-deep) 20%, transparent);
 }
 
 /* ============================================================
@@ -467,7 +475,7 @@ textarea {
   border-radius: var(--r-full);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: var(--step--1);
   font-weight: 700;
   overflow: hidden;
@@ -508,7 +516,7 @@ textarea {
   border: 2px dashed var(--accent);
   border-radius: var(--r-md);
   background: color-mix(in oklab, var(--accent-soft) 92%, transparent);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: var(--step-0);
   font-weight: 700;
   pointer-events: none;
@@ -691,7 +699,7 @@ textarea {
 
 .state__steps b {
   flex: none;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 800;
 }
 
@@ -754,7 +762,8 @@ textarea {
   inset: 0;
   width: 36%;
   border-radius: var(--r-full);
-  background: var(--accent);
+  background: linear-gradient(90deg, var(--scan-deep), var(--scan));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--scan) 45%, transparent);
   animation: slide 1.35s var(--ease) infinite;
 }
 
@@ -974,7 +983,7 @@ textarea {
 .tab[aria-selected="true"] {
   background: var(--accent-soft);
   border-color: var(--accent-line);
-  color: var(--accent);
+  color: var(--accent-ink);
   box-shadow: var(--shadow-xs);
 }
 
@@ -1338,7 +1347,7 @@ textarea {
 }
 
 .caveat strong {
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 800;
 }
 
@@ -1428,7 +1437,7 @@ textarea {
 .steps__item.is-active {
   border-color: var(--accent-line);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   box-shadow: var(--shadow-xs);
 }
 .steps__item.is-active .steps__num {
@@ -1608,7 +1617,7 @@ textarea {
 }
 .progress__item.is-running .progress__glyph,
 .progress__item.is-running .progress__status {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .progress__item.is-running .progress__glyph {
   animation: spin 1.5s linear infinite;
