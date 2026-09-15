@@ -306,13 +306,18 @@ export function sampleConversationForSpeakers(text, maxChars = 15_000) {
   return sampled.slice(0, maxChars);
 }
 
-export function filterConversationForPerson(conversation, personName, maxChars = 18_000) {
+export function filterConversationForPerson(conversation, personName, maxChars = 12_000, aliases = []) {
   if (!conversation || conversation.length <= maxChars) {
     return conversation;
   }
 
   const lines = conversation.split(/\r?\n/);
-  const targetPattern = new RegExp(`^\\[${personName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]|^${personName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`);
+  const names = [personName, ...(Array.isArray(aliases) ? aliases : [])].filter(Boolean);
+  const patterns = names.map((name) => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return `^\\s*\\[${escaped}\\]|(?:\\]|,|\\n)\\s*${escaped}\\s*:|^\\s*${escaped}\\s*:`;
+  });
+  const targetPattern = new RegExp(patterns.join('|'));
 
   const selectedIndices = new Set();
   for (let i = 0; i < lines.length; i++) {
@@ -326,7 +331,7 @@ export function filterConversationForPerson(conversation, personName, maxChars =
 
   const extracted = Array.from(selectedIndices)
     .sort((a, b) => a - b)
-    .map(i => lines[i]);
+    .map((i) => lines[i]);
 
   if (extracted.length < 5) {
     return sampleConversationForSpeakers(conversation, maxChars);
@@ -337,20 +342,58 @@ export function filterConversationForPerson(conversation, personName, maxChars =
     return joined;
   }
 
-  const headCount = Math.floor(extracted.length * 0.35);
-  const tailCount = Math.floor(extracted.length * 0.45);
-  const midCount = Math.floor(extracted.length * 0.2);
-  const midStart = Math.floor((extracted.length - midCount) / 2);
+  // maxChars 초과 시: 초반 25%, 중반 35%, 최근 40% 발화로 균형 추출
+  const headBudget = Math.floor(maxChars * 0.25);
+  const midBudget = Math.floor(maxChars * 0.35);
+  const tailBudget = Math.floor(maxChars * 0.40);
+
+  let headText = '';
+  let headIndex = 0;
+  while (headIndex < extracted.length && (headText.length + extracted[headIndex].length + 1) <= headBudget) {
+    headText += (headText ? '\n' : '') + extracted[headIndex];
+    headIndex++;
+  }
+
+  const tailLines = [];
+  let tailLength = 0;
+  let tailIndex = extracted.length - 1;
+  while (tailIndex > headIndex && (tailLength + extracted[tailIndex].length + 1) <= tailBudget) {
+    tailLines.unshift(extracted[tailIndex]);
+    tailLength += extracted[tailIndex].length + 1;
+    tailIndex--;
+  }
+
+  const midCenter = Math.floor((headIndex + tailIndex) / 2);
+  const midLines = [];
+  let midLength = 0;
+  let offset = 0;
+  while (midLength < midBudget) {
+    const left = midCenter - offset;
+    const right = midCenter + offset + 1;
+    let added = false;
+    if (left > headIndex && left < tailIndex && (midLength + extracted[left].length + 1) <= midBudget) {
+      midLines.unshift(extracted[left]);
+      midLength += extracted[left].length + 1;
+      added = true;
+    }
+    if (right < tailIndex && right > headIndex && (midLength + extracted[right].length + 1) <= midBudget) {
+      midLines.push(extracted[right]);
+      midLength += extracted[right].length + 1;
+      added = true;
+    }
+    if (!added) break;
+    offset++;
+  }
 
   const sampled = [
-    ...extracted.slice(0, headCount),
+    headText,
     '\n... (중간 대화 생략) ...\n',
-    ...extracted.slice(midStart, midStart + midCount),
+    midLines.join('\n'),
     '\n... (중간 대화 생략) ...\n',
-    ...extracted.slice(-tailCount),
-  ];
+    tailLines.join('\n'),
+  ].join('\n');
 
-  return sampled.join('\n').slice(0, maxChars);
+  return sampled.slice(0, maxChars);
 }
 
 export async function extractSpeakers({ conversation, apiKey, model, wire }) {
@@ -476,7 +519,7 @@ export async function analyzePerson({ conversation, person, apiKey, model, wire 
   }
 
   // 대용량 대화(6만자+)에서도 타임아웃 없이 빠르고 정확하게 분석할 수 있도록 대상 인물 발화 중심 압축
-  const filteredText = filterConversationForPerson(text, target.name, 12_000);
+  const filteredText = filterConversationForPerson(text, target.name, 12_000, target.aliases);
 
   const json = await requestJson({
     apiKey,

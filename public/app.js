@@ -1384,7 +1384,7 @@ async function runSelected() {
 
   let quotaBlocked = false;
 
-  async function analyzeSpeaker(speaker) {
+  async function analyzeSpeaker(speaker, retryCount = 0) {
     state.status.set(speaker.name, 'running');
     renderFlow();
 
@@ -1399,14 +1399,39 @@ async function runSelected() {
           apiKey: getCustomApiKey() || undefined,
         }),
       });
-      const data = await res.json();
+
+      let data = null;
+      try {
+        const rawText = await res.text();
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        data = null;
+      }
 
       if (!res.ok) {
+        // 일시적인 게이트웨이 타임아웃(504), 게이트웨이 오류(502), 서버 5xx 시 1회 자동 재시도
+        if (retryCount < 1 && (res.status === 504 || res.status === 502 || res.status >= 500)) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          return analyzeSpeaker(speaker, retryCount + 1);
+        }
+
         state.status.set(speaker.name, 'error');
-        state.errors.set(speaker.name, data?.error?.message || `실패 (HTTP ${res.status})`);
+        const fallbackMsg = res.status === 504
+          ? '일시적인 서버 응답 시간 초과'
+          : res.status === 502
+          ? '일시적인 게이트웨이 오류'
+          : `서버 오류 (HTTP ${res.status})`;
+        state.errors.set(speaker.name, data?.error?.message || fallbackMsg);
         if (res.status === 429) {
           quotaBlocked = true;
         }
+      } else if (!data) {
+        if (retryCount < 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          return analyzeSpeaker(speaker, retryCount + 1);
+        }
+        state.status.set(speaker.name, 'error');
+        state.errors.set(speaker.name, '응답 형식이 올바르지 않습니다.');
       } else {
         state.results.push(data);
         state.status.set(speaker.name, 'done');
@@ -1414,6 +1439,10 @@ async function runSelected() {
         renderQuota(data);
       }
     } catch (err) {
+      if (retryCount < 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        return analyzeSpeaker(speaker, retryCount + 1);
+      }
       state.status.set(speaker.name, 'error');
       state.errors.set(speaker.name, String(err?.message || err));
     }
