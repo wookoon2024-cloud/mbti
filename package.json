@@ -1,0 +1,14 @@
+{
+  "name": "chat-mbti-reader",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "대화 내용으로 참여자별 MBTI를 추정하는 웹 앱 (Command Code Provider API)",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "dev": "node --env-file-if-exists=.env server/index.js"
+  },
+  "engines": {
+    "node": ">=20.6"
+  }
+}
