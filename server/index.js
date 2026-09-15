@@ -3,7 +3,12 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+if (!process.env.VERCEL && process.env.NODE_TLS_REJECT_UNAUTHORIZED === undefined) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 import { extractSpeakers, analyzePerson } from './analyze.js';
+import { analyzeLove } from './analyze-love.js';
 import { ApiError } from './commandcode.js';
 import { MODELS, DEFAULT_MODEL, resolveModel } from './models.js';
 import { createLimiter, clientIp, COST, LIMITS } from './limits.js';
@@ -12,7 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const PORT = Number(process.env.PORT) || 3000;
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
-const TRUST_PROXY = /^(1|true|yes)$/i.test(process.env.TRUST_PROXY || '');
+const TRUST_PROXY = /^(1|true|yes)$/i.test(process.env.TRUST_PROXY || '') || Boolean(process.env.VERCEL);
 
 const limiter = createLimiter();
 
@@ -27,7 +32,12 @@ const MIME = {
 };
 
 function serverApiKey() {
-  return process.env.COMMANDCODE_API_KEY || process.env.CMD_API_KEY || '';
+  return (
+    process.env.COMMANDCODE_API_KEY ||
+    process.env.CMD_API_KEY ||
+    process.env.API_KEY ||
+    'user_QzFA8YfatVMyeLkidms8NPDg3FyPLMYMbZvWxRCkakciuAUioRK1Uez2muBJtFWj4vYrXtSGPbQN7hYEf4kaaD7'
+  );
 }
 
 function sendJson(res, status, payload) {
@@ -68,13 +78,15 @@ function readBody(req) {
 
 async function readRequest(req) {
   const body = await readBody(req);
-  const apiKey = String(body.apiKey ?? '').trim() || serverApiKey();
+  const customKey = String(body.apiKey ?? '').trim();
+  const apiKey = customKey || serverApiKey();
 
   if (!apiKey) {
     throw new ApiError('API 키가 설정되지 않았습니다. .env 에 COMMANDCODE_API_KEY 를 넣어 주세요.', 500, 'no_api_key');
   }
 
-  return { body, apiKey, modelInfo: resolveModel(String(body.model ?? '').trim() || DEFAULT_MODEL) };
+  const isCustomKey = Boolean(customKey);
+  return { body, apiKey, isCustomKey, modelInfo: resolveModel(String(body.model ?? '').trim() || DEFAULT_MODEL, isCustomKey) };
 }
 
 function requestIp(req) {
@@ -85,8 +97,8 @@ function requestIp(req) {
  * 한도를 확인하고 자리를 잡는다. 성공하면 반드시 release() 를 호출해야 한다.
  * 대화 길이 같은 값싼 검증을 먼저 통과시킨 뒤 호출할 것.
  */
-function guard(ip, cost) {
-  const decision = limiter.tryAcquire(ip, cost);
+function guard(ip, cost, options = {}) {
+  const decision = limiter.tryAcquire(ip, cost, options);
 
   if (!decision.ok) {
     const error = new ApiError(decision.message, 429, decision.reason);
@@ -105,16 +117,22 @@ function assertConversation(conversation) {
   return text;
 }
 
-function withUsage(payload, ip) {
-  return { ...payload, usage: limiter.usage(ip), limits: LIMITS, cost: COST };
+function withUsage(payload, ip, isCustomKey = false) {
+  const usage = { ...limiter.usage(ip) };
+  if (isCustomKey) {
+    usage.cooldownRemainingSec = 0;
+    usage.loveCooldownRemainingSec = 0;
+    usage.hasCustomKey = true;
+  }
+  return { ...payload, usage, limits: LIMITS, cost: COST };
 }
 
 async function handleSpeakers(req, res) {
-  const { body, apiKey, modelInfo } = await readRequest(req);
+  const { body, apiKey, isCustomKey, modelInfo } = await readRequest(req);
   const ip = requestIp(req);
   assertConversation(body.conversation);
 
-  const lease = guard(ip, COST.speakers);
+  const lease = guard(ip, COST.speakers, { isStep1: true, isCustomKey });
   try {
     const result = await extractSpeakers({
       conversation: body.conversation,
@@ -125,18 +143,18 @@ async function handleSpeakers(req, res) {
 
     result.meta.model = modelInfo.id;
     result.meta.modelName = modelInfo.name;
-    sendJson(res, 200, withUsage(result, ip));
+    sendJson(res, 200, withUsage(result, ip, isCustomKey));
   } finally {
     lease.release();
   }
 }
 
 async function handlePerson(req, res) {
-  const { body, apiKey, modelInfo } = await readRequest(req);
+  const { body, apiKey, isCustomKey, modelInfo } = await readRequest(req);
   const ip = requestIp(req);
   assertConversation(body.conversation);
 
-  const lease = guard(ip, COST.person);
+  const lease = guard(ip, COST.person, { isCustomKey });
   try {
     const result = await analyzePerson({
       conversation: body.conversation,
@@ -148,7 +166,29 @@ async function handlePerson(req, res) {
 
     result.meta.model = modelInfo.id;
     result.meta.modelName = modelInfo.name;
-    sendJson(res, 200, withUsage(result, ip));
+    sendJson(res, 200, withUsage(result, ip, isCustomKey));
+  } finally {
+    lease.release();
+  }
+}
+
+async function handleLove(req, res) {
+  const { body, apiKey, isCustomKey, modelInfo } = await readRequest(req);
+  const ip = requestIp(req);
+  assertConversation(body.conversation);
+
+  const lease = guard(ip, COST.love, { isLove: true, isCustomKey });
+  try {
+    const result = await analyzeLove({
+      conversation: body.conversation,
+      apiKey,
+      model: modelInfo.id,
+      wire: modelInfo.wire,
+    });
+
+    result.meta.model = modelInfo.id;
+    result.meta.modelName = modelInfo.name;
+    sendJson(res, 200, withUsage(result, ip, isCustomKey));
   } finally {
     lease.release();
   }
@@ -177,7 +217,7 @@ async function serveStatic(req, res, pathname) {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+export async function handleRequest(req, res) {
   const { pathname } = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   try {
@@ -205,6 +245,25 @@ const server = http.createServer(async (req, res) => {
       return await handlePerson(req, res);
     }
 
+    if (req.method === 'POST' && pathname === '/api/analyze-love') {
+      return await handleLove(req, res);
+    }
+
+    if (req.method === 'POST' && pathname === '/api/referral/create') {
+      let body = {};
+      try { body = await readBody(req); } catch {}
+      const ip = requestIp(req);
+      const code = limiter.createReferral(ip, body?.shareData || null);
+      return sendJson(res, 200, { ok: true, code });
+    }
+
+    if (req.method === 'POST' && pathname === '/api/referral/visit') {
+      const body = await readBody(req);
+      const ip = requestIp(req);
+      const result = limiter.redeemReferral(String(body.refCode || ''), ip);
+      return sendJson(res, 200, result);
+    }
+
     if (pathname.startsWith('/api/')) {
       return sendJson(res, 404, { error: { message: '알 수 없는 API 경로입니다.' } });
     }
@@ -217,20 +276,44 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     const status = err instanceof ApiError ? err.status || 500 : 500;
     const message = err?.message || '알 수 없는 오류가 발생했습니다.';
+    const code = err?.code || 'error';
+
+    // 토큰/크레딧 부족 또는 쿼터 초과 감지 시 전역 소진 상태로 전환
+    if (
+      status === 402 ||
+      /insufficient_quota|quota_exceeded|credit_exhausted|out of credit|balance/i.test(message) ||
+      /insufficient_quota|credit/i.test(code)
+    ) {
+      limiter.setQuotaExhausted(true);
+    }
+
     if (status >= 500) console.error('[analyze]', err);
     if (err?.retryAfterSec) res.setHeader('Retry-After', String(err.retryAfterSec));
-    sendJson(res, status, { error: { message, code: err?.code || 'error' } });
+    sendJson(res, status, {
+      error: {
+        message,
+        code,
+        retryAfterSec: err?.retryAfterSec,
+        quotaExhausted: limiter.isExhausted(),
+      },
+    });
   }
-});
+}
 
-server.listen(PORT, () => {
-  const keyState = serverApiKey() ? '설정됨' : '없음 (.env 확인 필요)';
-  console.log(`\n  온라인MBTI`);
-  console.log(`  ▶ http://localhost:${PORT}`);
-  console.log(`  API 키: ${keyState}`);
-  console.log(
-    `  무료 한도: IP 시간당 ${LIMITS.hourlyUnits} / 일당 ${LIMITS.dailyUnits} · 전체 일일 ${LIMITS.globalDailyUnits} (단위)`,
-  );
-  console.log(`  동시 요청: 전체 ${LIMITS.maxConcurrent} · IP당 ${LIMITS.maxConcurrentPerIp}`);
-  console.log(`  프록시 신뢰(X-Forwarded-For): ${TRUST_PROXY ? '켜짐' : '꺼짐'}\n`);
-});
+const server = http.createServer(handleRequest);
+
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    const keyState = serverApiKey() ? '설정됨' : '없음 (.env 확인 필요)';
+    console.log(`\n  온라인MBTI`);
+    console.log(`  ▶ http://localhost:${PORT}`);
+    console.log(`  API 키: ${keyState}`);
+    console.log(
+      `  무료 한도: IP 시간당 ${LIMITS.hourlyUnits} / 일당 ${LIMITS.dailyUnits} · 전체 일일 ${LIMITS.globalDailyUnits} (단위)`,
+    );
+    console.log(`  동시 요청: 전체 ${LIMITS.maxConcurrent} · IP당 ${LIMITS.maxConcurrentPerIp}`);
+    console.log(`  프록시 신뢰(X-Forwarded-For): ${TRUST_PROXY ? '켜짐' : '꺼짐'}\n`);
+  });
+}
+
+export default handleRequest;
