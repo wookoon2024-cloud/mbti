@@ -4,6 +4,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import pg from 'pg';
+
+let rawConn = process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || '';
+if (rawConn && rawConn.includes('?')) {
+  rawConn = rawConn.split('?')[0];
+}
+
+let pgPool = null;
+if (rawConn) {
+  pgPool = new pg.Pool({
+    connectionString: rawConn,
+    ssl: { rejectUnauthorized: false },
+    max: 3,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000,
+  });
+}
 
 const ANALYTICS_FILE = process.env.VERCEL
   ? path.resolve('/tmp', 'analytics.json')
@@ -43,7 +60,102 @@ function loadData() {
 
 let store = loadData();
 
-function saveData() {
+let dbInitPromise = null;
+async function ensureDbTable() {
+  if (!pgPool) return;
+  if (!dbInitPromise) {
+    dbInitPromise = pgPool.query(`
+      CREATE TABLE IF NOT EXISTS talkscanner_analytics (
+        key TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `).catch(err => {
+      console.warn('[Supabase] Init error:', err.message);
+      dbInitPromise = null;
+    });
+  }
+  return dbInitPromise;
+}
+
+function mergeStore(externalData) {
+  if (!externalData) return;
+  if (externalData.daily) {
+    for (const [k, v] of Object.entries(externalData.daily)) {
+      if (!store.daily[k]) {
+        store.daily[k] = { ...v };
+      } else {
+        const cur = store.daily[k];
+        cur.pv = Math.max(cur.pv || 0, v.pv || 0);
+        cur.mbti = Math.max(cur.mbti || 0, v.mbti || 0);
+        cur.love = Math.max(cur.love || 0, v.love || 0);
+        cur.apiTotal = Math.max(cur.apiTotal || 0, v.apiTotal || 0);
+        const combined = new Set([...(cur.uvIps || []), ...(v.uvIps || [])]);
+        cur.uvIps = Array.from(combined);
+      }
+    }
+  }
+  if (Array.isArray(externalData.recentEvents) && externalData.recentEvents.length > 0) {
+    const existingKeys = new Set(store.recentEvents.map(e => e.time + e.type));
+    for (const evt of externalData.recentEvents) {
+      if (!existingKeys.has(evt.time + evt.type)) {
+        store.recentEvents.push(evt);
+        existingKeys.add(evt.time + evt.type);
+      }
+    }
+    store.recentEvents.sort((a, b) => new Date(b.time) - new Date(a.time));
+    if (store.recentEvents.length > 100) store.recentEvents.length = 100;
+  }
+}
+
+export async function pullFromSupabase() {
+  if (!pgPool) return;
+  try {
+    await ensureDbTable();
+    const res = await pgPool.query(`SELECT data FROM talkscanner_analytics WHERE key = 'store'`);
+    if (res.rows && res.rows.length > 0 && res.rows[0].data) {
+      mergeStore(res.rows[0].data);
+    } else if (Object.keys(store.daily).length > 0) {
+      // DB가 비어있으면 현재 누적 데이터를 초기 업로드
+      pushToSupabase(true);
+    }
+  } catch (err) {
+    console.warn('[Supabase] pull error:', err.message);
+  }
+}
+
+// 초기 기동 시 1회 비동기 동기화
+pullFromSupabase().catch(() => {});
+
+let dbSaveTimer = null;
+function pushToSupabase(immediate = false) {
+  if (!pgPool) return;
+  if (dbSaveTimer) clearTimeout(dbSaveTimer);
+  const doSave = async () => {
+    try {
+      await ensureDbTable();
+      const payload = JSON.stringify({
+        daily: store.daily,
+        recentEvents: store.recentEvents.slice(0, 100),
+      });
+      await pgPool.query(`
+        INSERT INTO talkscanner_analytics (key, data, updated_at)
+        VALUES ('store', $1::jsonb, NOW())
+        ON CONFLICT (key) DO UPDATE
+        SET data = EXCLUDED.data, updated_at = NOW();
+      `, [payload]);
+    } catch (err) {
+      console.warn('[Supabase] push error:', err.message);
+    }
+  };
+  if (immediate) {
+    doSave().catch(() => {});
+  } else {
+    dbSaveTimer = setTimeout(doSave, 1500);
+  }
+}
+
+function saveData(immediateCloud = false) {
   try {
     const dir = path.dirname(ANALYTICS_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -64,6 +176,7 @@ function saveData() {
   } catch (err) {
     console.warn('Failed to save analytics to disk:', err.message);
   }
+  pushToSupabase(immediateCloud);
 }
 
 function ensureTodayEntry() {
@@ -148,7 +261,8 @@ export function revokeAdmin(req) {
   // 상태 비저장 서명 토큰
 }
 
-export function getAnalyticsStats() {
+export async function getAnalyticsStats() {
+  await pullFromSupabase();
   const diskData = loadData();
   // 메모리 상의 당일 데이터와 디스크 데이터 병합
   for (const [k, v] of Object.entries(diskData.daily || {})) {

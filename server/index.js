@@ -247,7 +247,7 @@ export async function handleRequest(req, res) {
       if (!verifyAdmin(req)) {
         return sendJson(res, 401, { error: { message: '관리자 로그인이 필요합니다.' } });
       }
-      return sendJson(res, 200, getAnalyticsStats());
+      return sendJson(res, 200, await getAnalyticsStats());
     }
 
     if (req.method === 'POST' && pathname === '/api/admin/logout') {
