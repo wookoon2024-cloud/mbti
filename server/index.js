@@ -168,7 +168,8 @@ async function handlePerson(req, res) {
 
     result.meta.model = modelInfo.id;
     result.meta.modelName = modelInfo.name;
-    trackEvent(ip, 'mbti', `${body.person} MBTI 판정 (${result.mbti?.type || '성공'})`);
+    const personName = typeof body.person === 'object' ? body.person?.name : (body.person || '인물');
+    trackEvent(ip, 'mbti', `${personName} MBTI 판정 (${result.mbti?.type || '성공'})`);
     sendJson(res, 200, withUsage(result, ip, isCustomKey));
   } finally {
     lease.release();

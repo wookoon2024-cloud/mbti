@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>온라인 스카우터 · 대화로 읽는 MBTI & 1:1 애정 분석</title>
+    <title>톡스캐너 · 대화로 분석하는 참여자 성향 & 1:1 관계 리포트</title>
     <meta
       name="description"
-      content="카카오톡, 단체방, 1:1 대화를 스캔해 MBTI 성향과 두 사람 간의 1:1 애정도 추이를 스카우터로 정밀 측정합니다."
+      content="카카오톡 단톡방 및 1:1 대화를 분석하여 참여자별 MBTI 성향과 두 사람 간의 호감도·애정도 추이를 정밀 리포트로 제공합니다."
     />
     <link
       rel="icon"
@@ -26,73 +26,32 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand__mark" aria-hidden="true">
-          <svg viewBox="0 0 44 44" width="28" height="28" fill="none" focusable="false">
+          <svg viewBox="0 0 36 36" width="30" height="30" fill="none">
             <defs>
-              <linearGradient id="scouterLens" x1="14" y1="12" x2="38" y2="30" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#7aff8f" stop-opacity="0.95" />
-                <stop offset="50%" stop-color="#00e676" stop-opacity="0.88" />
-                <stop offset="100%" stop-color="#00ab55" stop-opacity="0.95" />
+              <linearGradient id="brandGrad" x1="2" y1="2" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#6366f1" />
+                <stop offset="100%" stop-color="#4338ca" />
               </linearGradient>
-              <linearGradient id="scouterBody" x1="6" y1="14" x2="20" y2="32" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#ffffff" />
-                <stop offset="55%" stop-color="#e2e8f0" />
-                <stop offset="100%" stop-color="#cbd5e1" />
+              <linearGradient id="heartGrad" x1="14" y1="12" x2="32" y2="30" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f43f5e" />
+                <stop offset="100%" stop-color="#fb7185" />
               </linearGradient>
-              <filter id="lensGlow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#00e676" flood-opacity="0.45" />
-              </filter>
             </defs>
-            <path
-              d="M10.5 21 C9.5 9.5, 23 4, 33 6.8 C34 7.1, 34 8.2, 33 8.6 C24.5 6.2, 12.8 11.5, 13.5 21 Z"
-              fill="#475569"
-            />
-            <path
-              d="M31.5 6.5 C34 7, 34.5 8.5, 33 9"
-              stroke="#64748b"
-              stroke-width="1.2"
-              stroke-linecap="round"
-            />
-            <path
-              d="M17.5 16.2 L34.2 13.6 C37.8 13 40.5 15.2 40.2 19 L39.6 23.5 C39 27.5, 35.5 30.2, 31 29.8 L18 27.5 Z"
-              fill="url(#scouterLens)"
-              stroke="#a7f3d0"
-              stroke-width="0.8"
-              filter="url(#lensGlow)"
-            />
-            <circle cx="32" cy="21.5" r="3.2" stroke="#ffffff" stroke-opacity="0.8" stroke-width="0.75" stroke-dasharray="2 1.2" />
-            <circle cx="32" cy="21.5" r="1.1" fill="#ffffff" fill-opacity="0.95" />
-            <line x1="22.5" y1="18.5" x2="26" y2="18.5" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
-            <line x1="22.5" y1="21.2" x2="27" y2="21.2" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
-            <line x1="22.5" y1="24" x2="25" y2="24" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
-            <path
-              d="M18.8 17.5 L34.5 15 C37 14.6 38.5 15.6 38.6 17.5"
-              stroke="#ffffff"
-              stroke-width="1"
-              stroke-linecap="round"
-              stroke-opacity="0.85"
-            />
-            <path
-              d="M6.5 22 C6 16.5, 11 13.8, 16 14.2 L17.5 29 C11.5 29.8, 6.8 26.8, 6.5 22 Z"
-              fill="#94a3b8"
-            />
-            <path
-              d="M7.8 22 C7.5 17.2, 12 14.8, 17 15.2 L18.5 28.5 C13 29, 8 26.5, 7.8 22 Z"
-              fill="url(#scouterBody)"
-            />
-            <circle cx="12.5" cy="22" r="3.2" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.6" />
-            <circle cx="12.5" cy="22" r="1.3" fill="#64748b" />
-            <rect x="16.5" y="16.5" width="3.2" height="10" rx="1" fill="#1e293b" />
-            <rect x="17.2" y="19.2" width="2" height="4.2" rx="0.6" fill="#ef4444" />
-            <rect x="17.6" y="19.8" width="1.2" height="1.5" rx="0.3" fill="#fca5a5" />
+            <rect width="36" height="36" rx="9" fill="url(#brandGrad)" />
+            <path d="M10 18.5C10 13.8 13.6 10 18 10C22.4 10 26 13.8 26 18.5C26 23.2 22.4 27 18 27C16.6 27 15.3 26.6 14.2 25.9L10.5 27L11.4 23.8C10.5 22.3 10 20.5 10 18.5Z" fill="#ffffff" />
+            <path d="M21 16C21 13.8 22.8 12 25 12C27.2 12 29 13.8 29 16C29 18.5 26.8 20.5 25 22.2C23.2 20.5 21 18.5 21 16Z" fill="url(#heartGrad)" />
+            <circle cx="15" cy="18.5" r="1.1" fill="#6366f1" />
+            <circle cx="18" cy="18.5" r="1.1" fill="#6366f1" />
+            <circle cx="21" cy="18.5" r="1.1" fill="#6366f1" />
           </svg>
         </span>
         <div class="brand__text">
-          <h1>온라인<span>스카우터</span></h1>
+          <h1>톡<span>스캐너</span></h1>
         </div>
       </div>
 
       <!-- 상단 모드 전환 탭 (헤더에 콤팩트하게 배치) -->
-      <nav class="topbar__tabs" aria-label="스카우터 분석 모드 선택">
+      <nav class="topbar__tabs" aria-label="분석 모드 선택">
         <div class="mode-tabs" role="tablist">
           <button
             type="button"
@@ -103,7 +62,7 @@
             aria-controls="view-mbti"
           >
             <span class="mode-tab__icon" aria-hidden="true">💬</span>
-            <span class="mode-tab__title">톡방 MBTI 분석</span>
+            <span class="mode-tab__title">단톡방 MBTI 분석</span>
           </button>
           <button
             type="button"
@@ -119,7 +78,7 @@
         </div>
       </nav>
 
-      <!-- 우측 유틸리티 (약관 팝업 링크 & API 상태) -->
+      <!-- 우측 유틸리티 -->
       <div class="topbar__right">
         <div class="topbar__links">
           <button type="button" class="topbar__link-btn" id="open-terms">이용안내</button>
@@ -128,10 +87,6 @@
           <span class="topbar__sep">·</span>
           <button type="button" class="topbar__link-btn" id="open-intro">가이드</button>
         </div>
-        <p class="topbar__engine" title="Command Code Provider API">
-          <span class="topbar__dot" aria-hidden="true"></span>
-          API
-        </p>
       </div>
     </header>
 
@@ -162,52 +117,63 @@
             </div>
             <p class="field__file" id="file-info" role="status" hidden></p>
 
-            <!-- 콤팩트 모델 선택 행 -->
-            <div class="field-compact">
-              <div class="field__label-row">
-                <label class="field__label" for="model">판정 모델</label>
-                <span class="field__model-badge" id="mbti-model-badge">딥시크 V4.1 FLASH 고정</span>
+            <!-- 콤팩트 모델 & API 키 설정 서랍 (선택 시 열림) -->
+            <details class="settings-drawer" id="settings-drawer-mbti">
+              <summary class="settings-drawer__summary">
+                <div class="settings-drawer__lead">
+                  <span class="settings-drawer__icon">⚙️</span>
+                  <span class="settings-drawer__title">엔진 & API 설정</span>
+                </div>
+                <span class="settings-drawer__badge" id="mbti-model-badge">DeepSeek V4.1 Flash</span>
+              </summary>
+              <div class="settings-drawer__body">
+                <div class="field-compact">
+                  <div class="field__label-row">
+                    <label class="field__label" for="model">판정 모델 선택</label>
+                  </div>
+                  <select id="model" class="select select--sm"></select>
+                </div>
+                <div class="apikey-field-compact">
+                  <input
+                    type="password"
+                    id="global-apikey"
+                    class="input apikey-input--sm"
+                    placeholder="본인 AI 키 (입력 시 모델 선택 & 무제한)"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <button type="button" class="btn btn--secondary btn--xs" id="save-apikey-btn">키 적용</button>
+                  <button type="button" class="btn btn--ghost btn--xs" id="clear-apikey-btn" hidden>삭제</button>
+                </div>
               </div>
-              <select id="model" class="select select--sm"></select>
-            </div>
-
-            <!-- 1줄 본인 AI 키 입력창 (판정 모델 바로 아래) -->
-            <div class="apikey-field-compact">
-              <input
-                type="password"
-                id="global-apikey"
-                class="input apikey-input--sm"
-                placeholder="🔑 본인 AI 키 (입력 시 모델 선택 & 무제한)"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button type="button" class="btn btn--secondary btn--xs" id="save-apikey-btn">키 적용</button>
-              <button type="button" class="btn btn--ghost btn--xs" id="clear-apikey-btn" hidden>삭제</button>
-            </div>
+            </details>
 
             <!-- 1줄 안심 보안 알림 -->
             <div class="privacy-callout-compact">
-              <span class="privacy-callout__icon" aria-hidden="true">🛡️</span>
-              <span>대화 내용은 서버에 저장되지 않고 즉시 파기됩니다</span>
+              <span class="privacy-callout__icon" aria-hidden="true">🔒</span>
+              <span>대화 내용은 서버에 저장되지 않고 분석 즉시 파기됩니다</span>
             </div>
 
             <!-- 한도 소진 배너 -->
             <div class="exhausted-banner" id="exhausted-banner" role="alert" hidden>
               <span class="exhausted-banner__icon" aria-hidden="true">🚨</span>
               <div class="exhausted-banner__text">
-                <strong>오늘 무료 AI 한도 소진</strong>
+                <strong>오늘 무료 한도 소진</strong>
                 <span id="exhausted-reset-timer">내일 자정 초기화 후 재이용 가능</span>
               </div>
             </div>
 
             <!-- 액션 버튼 행 -->
             <div class="actions actions--compact">
-              <button type="button" class="btn btn--secondary btn--sm" id="file-btn">📁 파일 열기</button>
+              <button type="button" class="btn btn--secondary btn--sm" id="file-btn">📁 파일 불러오기</button>
               <button type="button" class="btn btn--secondary btn--sm" id="sample">💡 예시 대화</button>
             </div>
 
             <div class="actions actions--stack">
-              <button type="button" class="btn btn--primary" id="analyze">1단계 · 등장인물 찾기</button>
+              <button type="button" class="btn btn--primary" id="analyze">
+                <span class="btn__icon">✨</span>
+                <span>대화 참여자 분석하기</span>
+              </button>
             </div>
 
             <!-- 쿨다운 배너 -->
@@ -236,16 +202,35 @@
           <section class="panel panel--results" id="results" tabindex="-1" aria-labelledby="results-title">
             <h2 id="results-title" class="visually-hidden">판독 결과</h2>
             <div id="results-body">
-              <div class="state state--empty">
-                <h3>아직 판독한 대화가 없습니다</h3>
+              <div class="state state--empty preview-card">
+                <div class="preview-card__badge">📊 대화 분석 리포트</div>
+                <h3>대화 내용을 입력하고 분석을 시작하세요</h3>
                 <p>
-                  왼쪽에 대화를 넣고 <strong>1단계 · 등장인물 찾기</strong>를 누르세요. 화자 목록 추출 후 각 인물별 4축 MBTI 성향과 신뢰도를 스카우터로 정밀 측정합니다.
+                  카카오톡 대화를 기반으로 화자별 대화 패턴을 정밀 분석하여, 각 인물의 4축 MBTI 성향과 실제 발언 기반 근거를 리포트로 제공합니다.
                 </p>
-                <ul class="state__list">
-                  <li><span class="dot dot--high" aria-hidden="true"></span>근거가 충분한 축은 진한 색</li>
-                  <li><span class="dot dot--mid" aria-hidden="true"></span>애매한 축은 옅은 색</li>
-                  <li><span class="dot dot--none" aria-hidden="true"></span>판단이 어려운 축은 회색 + <strong>?</strong></li>
-                </ul>
+                <div class="preview-features">
+                  <div class="preview-feature">
+                    <span class="preview-feature__icon">💬</span>
+                    <div class="preview-feature__text">
+                      <strong>실제 발화 데이터 기반</strong>
+                      <span>대화 빈도, 어조, 리액션을 기반으로 성향 도출</span>
+                    </div>
+                  </div>
+                  <div class="preview-feature">
+                    <span class="preview-feature__icon">🎯</span>
+                    <div class="preview-feature__text">
+                      <strong>4축 지표 & 신뢰도 정밀 분석</strong>
+                      <span>E/I, S/N, T/F, J/P 축별 확신도 및 근거 문장 제시</span>
+                    </div>
+                  </div>
+                  <div class="preview-feature">
+                    <span class="preview-feature__icon">🔒</span>
+                    <div class="preview-feature__text">
+                      <strong>100% 실시간 메모리 분석</strong>
+                      <span>대화 내용은 서버에 저장되지 않고 분석 즉시 파기</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -277,52 +262,63 @@
             </div>
             <p class="field__file" id="love-file-info" role="status" hidden></p>
 
-            <!-- 콤팩트 모델 선택 행 -->
-            <div class="field-compact">
-              <div class="field__label-row">
-                <label class="field__label" for="love-model">판정 모델</label>
-                <span class="field__model-badge" id="love-model-badge">딥시크 V4.1 FLASH 고정</span>
+            <!-- 콤팩트 모델 & API 키 설정 서랍 (선택 시 열림) -->
+            <details class="settings-drawer" id="settings-drawer-love">
+              <summary class="settings-drawer__summary">
+                <div class="settings-drawer__lead">
+                  <span class="settings-drawer__icon">⚙️</span>
+                  <span class="settings-drawer__title">엔진 & API 설정</span>
+                </div>
+                <span class="settings-drawer__badge" id="love-model-badge">DeepSeek V4.1 Flash</span>
+              </summary>
+              <div class="settings-drawer__body">
+                <div class="field-compact">
+                  <div class="field__label-row">
+                    <label class="field__label" for="love-model">판정 모델 선택</label>
+                  </div>
+                  <select id="love-model" class="select select--sm"></select>
+                </div>
+                <div class="apikey-field-compact">
+                  <input
+                    type="password"
+                    id="love-global-apikey"
+                    class="input apikey-input--sm"
+                    placeholder="본인 AI 키 (입력 시 모델 선택 & 무제한)"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <button type="button" class="btn btn--secondary btn--xs" id="love-save-apikey-btn">키 적용</button>
+                  <button type="button" class="btn btn--ghost btn--xs" id="love-clear-apikey-btn" hidden>삭제</button>
+                </div>
               </div>
-              <select id="love-model" class="select select--sm"></select>
-            </div>
-
-            <!-- 1줄 본인 AI 키 입력창 (판정 모델 바로 아래) -->
-            <div class="apikey-field-compact">
-              <input
-                type="password"
-                id="love-global-apikey"
-                class="input apikey-input--sm"
-                placeholder="🔑 본인 AI 키 (입력 시 모델 선택 & 무제한)"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button type="button" class="btn btn--secondary btn--xs" id="love-save-apikey-btn">키 적용</button>
-              <button type="button" class="btn btn--ghost btn--xs" id="love-clear-apikey-btn" hidden>삭제</button>
-            </div>
+            </details>
 
             <!-- 1줄 안심 보안 알림 -->
             <div class="privacy-callout-compact">
-              <span class="privacy-callout__icon" aria-hidden="true">🛡️</span>
-              <span>대화 내용은 서버에 저장되지 않고 즉시 파기됩니다</span>
+              <span class="privacy-callout__icon" aria-hidden="true">🔒</span>
+              <span>대화 내용은 서버에 저장되지 않고 분석 즉시 파기됩니다</span>
             </div>
 
             <!-- 한도 소진 배너 -->
             <div class="exhausted-banner" id="love-exhausted-banner" role="alert" hidden>
               <span class="exhausted-banner__icon" aria-hidden="true">🚨</span>
               <div class="exhausted-banner__text">
-                <strong>오늘 무료 AI 한도 소진</strong>
+                <strong>오늘 무료 한도 소진</strong>
                 <span id="love-exhausted-reset-timer">내일 자정 초기화 후 재이용 가능</span>
               </div>
             </div>
 
             <!-- 액션 버튼 행 -->
             <div class="actions actions--compact">
-              <button type="button" class="btn btn--secondary btn--sm" id="love-file-btn">📁 파일 열기</button>
+              <button type="button" class="btn btn--secondary btn--sm" id="love-file-btn">📁 파일 불러오기</button>
               <button type="button" class="btn btn--secondary btn--sm" id="love-sample">💡 예시 1:1 대화</button>
             </div>
 
             <div class="actions actions--stack">
-              <button type="button" class="btn btn--primary btn--love" id="analyze-love">❤️ 1:1 애정 분석하기</button>
+              <button type="button" class="btn btn--primary btn--love" id="analyze-love">
+                <span class="btn__icon">❤️</span>
+                <span>1:1 애정 & 관계 분석하기</span>
+              </button>
             </div>
 
             <!-- 쿨다운 배너 -->
@@ -349,17 +345,35 @@
           <section class="panel panel--results" id="love-results" tabindex="-1" aria-labelledby="love-results-title">
             <h2 id="love-results-title" class="visually-hidden">1:1 애정 판독 결과</h2>
             <div id="love-results-body">
-              <div class="state state--empty">
-                <h3>아직 판독한 1:1 대화가 없습니다</h3>
+              <div class="state state--empty preview-card preview-card--love">
+                <div class="preview-card__badge preview-card__badge--love">💖 1:1 관계 분석 리포트</div>
+                <h3>두 사람의 대화를 입력하고 분석하세요</h3>
                 <p>
-                  왼쪽에 두 사람의 대화를 넣고 <strong>❤️ 1:1 애정 분석하기</strong>를 누르세요.
-                  두 사람의 캐릭터 프로필과 호감도 점수, 그리고 <strong>일별 · 월별 · 연도별</strong> 애정도 시계열 변화 추이 그래프를 스카우터로 정밀 측정합니다.
+                  연인, 썸, 친구와의 1:1 카카오톡 대화를 통해 두 사람의 호감도 점수, 감정 밸런스, 기간별 애정도 시계열 변화를 한눈에 파악합니다.
                 </p>
-                <ul class="state__list">
-                  <li><span class="dot dot--high" aria-hidden="true"></span>두 사람의 호감도 점수와 감정 밸런스 측정</li>
-                  <li><span class="dot dot--mid" aria-hidden="true"></span>일별 / 월별 / 연도별 기간 설정 시계열 그래프</li>
-                  <li><span class="dot dot--none" aria-hidden="true"></span>대표 설렘 대사 & 갈등 예방 AI 코칭</li>
-                </ul>
+                <div class="preview-features">
+                  <div class="preview-feature">
+                    <span class="preview-feature__icon">💘</span>
+                    <div class="preview-feature__text">
+                      <strong>호감도 & 감정 밸런스 측정</strong>
+                      <span>누가 더 적극적인지, 호감 신호는 어떤지 수치화</span>
+                    </div>
+                  </div>
+                  <div class="preview-feature">
+                    <span class="preview-feature__icon">📈</span>
+                    <div class="preview-feature__text">
+                      <strong>시계열 애정도 추이 그래프</strong>
+                      <span>일별 / 월별 / 연도별 관계 흐름을 타임라인으로 확인</span>
+                    </div>
+                  </div>
+                  <div class="preview-feature">
+                    <span class="preview-feature__icon">💌</span>
+                    <div class="preview-feature__text">
+                      <strong>명장면 대사 & 맞춤 코칭</strong>
+                      <span>두 사람의 베스트 순간과 대화 팁 제공</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -369,9 +383,9 @@
 
     <footer class="footer">
       <div class="footer__inner">
-        <p class="footer__brand">온라인 스카우터</p>
+        <p class="footer__brand">톡스캐너 (TalkScanner)</p>
         <p class="footer__desc">
-          본 서비스의 분석 결과는 대화 발화 패턴에 기반한 AI 통계적 추정치이며, 전문적인 심리 검사가 아닙니다. 재미와 일상 대화 소재로만 참고해 주세요.
+          본 서비스의 분석 결과는 대화 발화 패턴에 기반한 통계적 추정치이며, 전문적인 심리 검사가 아닙니다. 재미와 일상 대화 소재로만 참고해 주세요.
         </p>
         <div class="footer__links">
           <button type="button" class="footer__link-btn" id="footer-open-terms">서비스 이용안내</button>
@@ -380,7 +394,7 @@
           <span class="footer__sep">·</span>
           <button type="button" class="footer__link-btn" id="footer-open-intro">안내 팝업 다시보기</button>
         </div>
-        <p class="footer__copy">© 2026 온라인 스카우터. All rights reserved.</p>
+        <p class="footer__copy">© 2026 톡스캐너 (TalkScanner). All rights reserved.</p>
       </div>
     </footer>
 
@@ -390,14 +404,14 @@
         <div class="modal-card__header">
           <div class="modal-card__badge">
             <span class="modal-card__badge-icon" aria-hidden="true">⚡</span>
-            <span>스카우터 이용 가이드</span>
+            <span>톡스캐너 이용 가이드</span>
           </div>
           <button type="button" class="modal-card__close" id="intro-close-x" aria-label="닫기">✕</button>
         </div>
         <div class="modal-card__body">
-          <h3 class="modal-card__title">스카우터 핵심 이용 가이드</h3>
+          <h3 class="modal-card__title">톡스캐너 핵심 이용 가이드</h3>
           <p class="modal-card__subtitle">
-            대화 속 인물들의 MBTI와 1:1 애정도를 실시간 판정합니다.
+            대화 속 인물들의 MBTI 성향과 1:1 애정도를 실시간 분석합니다.
           </p>
 
           <div class="modal-guide-list">

@@ -85,7 +85,7 @@ export function trackVisit(ip, pathname, userAgent = '') {
     entry.uvIps.push(ip);
   }
 
-  if (Math.random() < 0.2) saveData();
+  saveData();
 }
 
 export function trackEvent(ip, type, detail = '') {
@@ -138,6 +138,22 @@ export function revokeAdmin(req) {
 }
 
 export function getAnalyticsStats() {
+  const diskData = loadData();
+  // 메모리 상의 당일 데이터와 디스크 데이터 병합
+  for (const [k, v] of Object.entries(diskData.daily || {})) {
+    if (!store.daily[k]) {
+      store.daily[k] = v;
+    } else {
+      const cur = store.daily[k];
+      cur.pv = Math.max(cur.pv || 0, v.pv || 0);
+      cur.mbti = Math.max(cur.mbti || 0, v.mbti || 0);
+      cur.love = Math.max(cur.love || 0, v.love || 0);
+      cur.apiTotal = Math.max(cur.apiTotal || 0, v.apiTotal || 0);
+      const combined = new Set([...(cur.uvIps || []), ...(v.uvIps || [])]);
+      cur.uvIps = Array.from(combined);
+    }
+  }
+
   const now = Date.now();
   const fiveMinAgo = now - 5 * 60 * 1000;
 

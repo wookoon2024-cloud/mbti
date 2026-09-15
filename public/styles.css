@@ -1,57 +1,63 @@
 /* ============================================================
-   온라인MBTI — design system
-   Warm paper canvas + burnt sienna accent. Neutrals carry a trace
-   of the accent hue so surfaces feel authored, not empty.
+   톡스캐너 (TalkScanner) — Modern Commercial Design System
+   Sleek Porcelain/Slate neutral canvas + Royal Indigo/Violet
+   & Coral Rose accents. Crafted for a premium consumer SaaS feel.
    ============================================================ */
 
 :root {
   color-scheme: light;
 
-  /* surfaces — 밝게 */
-  --canvas: oklch(0.986 0.005 85);
-  --surface: oklch(0.999 0.002 85);
-  --surface-2: oklch(0.974 0.008 82);
-  --surface-3: oklch(0.948 0.011 80);
+  /* surfaces — 정갈하고 깨끗한 화이트/슬레이트 */
+  --canvas: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
 
-  /* text */
-  --ink: oklch(0.245 0.014 60);
-  --ink-soft: oklch(0.455 0.013 62);
-  --muted: oklch(0.535 0.013 65);
+  /* text — 선명한 고대비 슬레이트 */
+  --ink: #0f172a;
+  --ink-soft: #334155;
+  --muted: #64748b;
 
   /* lines */
-  --border: oklch(0.928 0.008 78);
-  --border-strong: oklch(0.872 0.011 76);
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
 
-  /* accent — 채우기용(밝음)과 텍스트용(진함)을 분리 */
-  --accent: oklch(0.68 0.185 40);
-  --accent-hover: oklch(0.73 0.175 40);
-  --accent-ink: oklch(0.515 0.16 38);
-  --accent-soft: oklch(0.962 0.030 42);
-  --accent-line: color-mix(in oklab, var(--accent) 34%, transparent);
-  --on-accent: oklch(0.215 0.050 40);
-  --focus: oklch(0.550 0.175 38);
+  /* accent — 고급스러운 로열 인디고 / 바이올렛 */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-ink: #3730a3;
+  --accent-soft: #eef2ff;
+  --accent-line: rgba(79, 70, 229, 0.2);
+  --on-accent: #ffffff;
+  --focus: #6366f1;
 
-  /* scan — 스카우터 렌즈의 라임 그린. 로고·상태점·스캔바에만 쓴다 */
-  --scan: oklch(0.80 0.190 140);
-  --scan-deep: oklch(0.62 0.170 145);
-  --scan-soft: oklch(0.955 0.060 140);
+  /* love accent — 1:1 관계 분석용 로즈 / 코랄 */
+  --love: #f43f5e;
+  --love-hover: #e11d48;
+  --love-soft: #fff1f2;
+  --love-ink: #be123c;
 
-  /* confidence bands — 밝아질수록 확신이 낮다. 색만으로 뜻을 전하지 않도록
-     항상 아이콘 + 라벨과 함께 쓴다. */
-  --band-high-fg: oklch(0.500 0.125 158);
-  --band-high-bg: oklch(0.958 0.045 158);
-  --band-mid-fg: oklch(0.545 0.120 72);
-  --band-mid-bg: oklch(0.968 0.055 82);
-  --band-low-fg: oklch(0.545 0.160 30);
-  --band-low-bg: oklch(0.962 0.040 40);
-  --band-none-fg: oklch(0.535 0.010 65);
-  --band-none-bg: oklch(0.955 0.005 65);
+  /* scan / status — 산뜻한 에메랄드 */
+  --scan: #10b981;
+  --scan-deep: #059669;
+  --scan-soft: #ecfdf5;
+
+  /* confidence bands */
+  --band-high-fg: #059669;
+  --band-high-bg: #ecfdf5;
+  --band-mid-fg: #d97706;
+  --band-mid-bg: #fffbeb;
+  --band-low-fg: #ea580c;
+  --band-low-bg: #fff7ed;
+  --band-none-fg: #64748b;
+  --band-none-bg: #f1f5f9;
 
   /* radii */
   --r-xs: 6px;
   --r-sm: 8px;
-  --r-md: 11px;
+  --r-md: 12px;
   --r-lg: 16px;
+  --r-xl: 20px;
   --r-full: 999px;
 
   /* space */
@@ -62,20 +68,18 @@
   --space-5: 24px;
   --space-6: 36px;
 
-  /* elevation */
-  --shadow-xs: 0 1px 2px oklch(0.25 0.02 60 / 0.05);
-  --shadow-sm: 0 1px 2px oklch(0.25 0.02 60 / 0.05), 0 2px 6px oklch(0.25 0.02 60 / 0.05);
-  --shadow-md: 0 2px 4px oklch(0.25 0.02 60 / 0.05), 0 8px 20px oklch(0.25 0.02 60 / 0.07);
-  --shadow-lg: 0 4px 10px oklch(0.25 0.02 60 / 0.06), 0 18px 44px oklch(0.25 0.02 60 / 0.10);
-  --shadow-accent: 0 1px 2px oklch(0.35 0.10 33 / 0.24), 0 4px 12px oklch(0.35 0.10 33 / 0.16);
+  /* elevation — 부드럽고 깊이감 있는 그림자 */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-accent: 0 4px 14px 0 rgba(79, 70, 229, 0.25);
 
-  --header-h: 64px;
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --header-h: 62px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI",
-    "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Pretendard Variable",
-    monospace;
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
 
   --step--2: 0.6875rem;
   --step--1: 0.75rem;
@@ -90,44 +94,49 @@
   :root {
     color-scheme: dark;
 
-    --canvas: oklch(0.205 0.009 65);
-    --surface: oklch(0.248 0.010 65);
-    --surface-2: oklch(0.288 0.011 65);
-    --surface-3: oklch(0.325 0.012 65);
+    --canvas: #090d16;
+    --surface: #111827;
+    --surface-2: #1e293b;
+    --surface-3: #334155;
 
-    --ink: oklch(0.955 0.006 80);
-    --ink-soft: oklch(0.815 0.009 78);
-    --muted: oklch(0.675 0.011 70);
+    --ink: #f8fafc;
+    --ink-soft: #cbd5e1;
+    --muted: #94a3b8;
 
-    --border: oklch(0.330 0.012 65);
-    --border-strong: oklch(0.415 0.014 65);
+    --border: #1e293b;
+    --border-strong: #334155;
 
-    --accent: oklch(0.78 0.160 45);
-    --accent-hover: oklch(0.83 0.150 45);
-    --accent-ink: oklch(0.82 0.150 45);
-    --accent-soft: oklch(0.315 0.050 42);
-    --accent-line: color-mix(in oklab, var(--accent) 40%, transparent);
-    --on-accent: oklch(0.190 0.030 45);
-    --focus: oklch(0.82 0.150 45);
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --accent-ink: #818cf8;
+    --accent-soft: rgba(99, 102, 241, 0.15);
+    --accent-line: rgba(99, 102, 241, 0.3);
+    --on-accent: #ffffff;
+    --focus: #818cf8;
 
-    --scan: oklch(0.86 0.190 140);
-    --scan-deep: oklch(0.72 0.180 143);
-    --scan-soft: oklch(0.320 0.060 140);
+    --love: #fb7185;
+    --love-hover: #f43f5e;
+    --love-soft: rgba(244, 63, 94, 0.15);
+    --love-ink: #fda4af;
 
-    --band-high-fg: oklch(0.820 0.130 158);
-    --band-high-bg: oklch(0.300 0.050 158);
-    --band-mid-fg: oklch(0.830 0.125 82);
-    --band-mid-bg: oklch(0.310 0.050 78);
-    --band-low-fg: oklch(0.810 0.130 45);
-    --band-low-bg: oklch(0.315 0.055 42);
-    --band-none-fg: oklch(0.745 0.010 70);
-    --band-none-bg: oklch(0.300 0.007 65);
+    --scan: #34d399;
+    --scan-deep: #10b981;
+    --scan-soft: rgba(52, 211, 153, 0.15);
 
-    --shadow-xs: 0 1px 2px oklch(0.04 0 0 / 0.45);
-    --shadow-sm: 0 1px 2px oklch(0.04 0 0 / 0.45), 0 2px 6px oklch(0.04 0 0 / 0.35);
-    --shadow-md: 0 2px 4px oklch(0.04 0 0 / 0.4), 0 8px 20px oklch(0.04 0 0 / 0.42);
-    --shadow-lg: 0 4px 10px oklch(0.04 0 0 / 0.45), 0 18px 44px oklch(0.04 0 0 / 0.5);
-    --shadow-accent: 0 1px 2px oklch(0.04 0 0 / 0.5), 0 4px 12px oklch(0.04 0 0 / 0.4);
+    --band-high-fg: #34d399;
+    --band-high-bg: rgba(52, 211, 153, 0.15);
+    --band-mid-fg: #fbbf24;
+    --band-mid-bg: rgba(251, 191, 36, 0.15);
+    --band-low-fg: #fb923c;
+    --band-low-bg: rgba(251, 146, 60, 0.15);
+    --band-none-fg: #94a3b8;
+    --band-none-bg: rgba(148, 163, 184, 0.12);
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.6);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.7);
+    --shadow-accent: 0 4px 16px rgba(99, 102, 241, 0.3);
   }
 }
 
@@ -2624,59 +2633,204 @@ textarea {
   }
 }
 
-/* 반응형 모바일 폴백 */
+/* ============================================================
+   반응형 모바일 및 태블릿 최적화 (900px 이하 전면 지원)
+   ============================================================ */
 @media (max-width: 900px) {
   html,
   body {
-    height: auto;
-    max-height: none;
-    overflow-y: auto;
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
   }
+
+  /* 모바일 상단 탑바: 2단 헤더로 깔끔하게 정리 */
   .topbar {
-    height: auto;
-    min-height: 48px;
-    max-height: none;
-    flex-wrap: wrap;
-    padding: 8px 12px;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    padding: 10px 14px 8px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(16px) !important;
   }
+
+  @media (prefers-color-scheme: dark) {
+    .topbar {
+      background: rgba(17, 24, 39, 0.95) !important;
+    }
+  }
+
+  .brand {
+    order: 1;
+  }
+
   .topbar__right {
-    width: 100%;
-    justify-content: space-between;
+    order: 2;
+    margin-left: auto;
   }
-  .apikey-bar {
-    flex-direction: column;
-    align-items: stretch;
+
+  .topbar__links {
+    gap: 4px !important;
   }
-  .apikey-bar__input {
-    flex: 1;
-    width: auto;
+
+  .topbar__link-btn {
+    font-size: 11px !important;
+    padding: 2px 4px !important;
   }
+
+  .topbar__tabs {
+    order: 3;
+    width: 100% !important;
+    margin-top: 4px !important;
+  }
+
+  .topbar__tabs .mode-tabs {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    padding: 3px !important;
+  }
+
+  .mode-tab {
+    justify-content: center !important;
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+  }
+
+  /* 뷰 컨테이너 & 레이아웃: 세로 스택 전환 */
   .views-container {
-    height: auto;
-    overflow: visible;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
   }
+
+  .view-pane {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .view-pane[hidden] {
+    display: none !important;
+  }
+
   .layout {
-    height: auto;
-    overflow: visible;
-    grid-template-columns: 1fr;
-    padding: 10px;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 10px 12px 28px !important;
+    gap: 16px !important;
   }
-  .panel--input {
-    height: auto;
+
+  .panel {
+    border-radius: var(--r-md) !important;
   }
-  .dropzone {
-    min-height: 160px;
-  }
-  .dropzone .textarea {
-    min-height: 160px;
-  }
+
+  .panel--input,
   .panel--results {
-    height: auto;
-    max-height: none;
-    overflow: visible;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 16px 14px !important;
   }
+
+  .dropzone {
+    min-height: 160px !important;
+  }
+
+  .dropzone .textarea {
+    min-height: 160px !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* 터치 최적화 버튼 및 액션 */
+  .actions--compact {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .actions--compact .btn {
+    width: 100% !important;
+    font-size: 13px !important;
+    padding: 10px !important;
+  }
+
+  .btn--primary {
+    width: 100% !important;
+    padding: 14px 18px !important;
+    font-size: 15px !important;
+    border-radius: var(--r-md) !important;
+  }
+
+  /* 쿨다운 배너 모바일 */
+  .cooldown-banner {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    text-align: center !important;
+  }
+
+  .cooldown-banner__lead {
+    justify-content: center !important;
+  }
+
+  .cooldown-copy-btn {
+    width: 100% !important;
+    height: 38px !important;
+    font-size: 13px !important;
+    margin-left: 0 !important;
+  }
+
+  /* 리포트 및 결과 카드 모바일 */
+  .steps {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 6px !important;
+  }
+
+  .steps__item {
+    padding: 6px 6px !important;
+    font-size: 11px !important;
+    justify-content: center !important;
+  }
+
+  .steps__label {
+    font-size: 11px !important;
+  }
+
+  .love-hero__stats {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .love-char-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
   .footer {
-    display: block;
+    display: block !important;
+    padding: 24px 16px !important;
   }
 }
 
@@ -3213,6 +3367,233 @@ textarea {
   font-weight: 700;
   height: 32px;
   padding: 0 14px;
+}
+
+/* ============================================================
+   Commercial SaaS Design Enhancements
+   ============================================================ */
+
+/* Settings Drawer (Clean Accordion for Model & Key) */
+.settings-drawer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 8px;
+  transition: all 0.2s var(--ease);
+  overflow: hidden;
+}
+
+.settings-drawer:hover {
+  border-color: var(--border-strong);
+}
+
+.settings-drawer[open] {
+  border-color: var(--accent-line);
+  box-shadow: var(--shadow-sm);
+}
+
+.settings-drawer__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  background: var(--surface-2);
+  transition: background 0.15s;
+}
+
+.settings-drawer__summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-drawer__summary:hover {
+  background: color-mix(in srgb, var(--surface-2) 85%, var(--accent-soft));
+}
+
+.settings-drawer__lead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-drawer__badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--accent-line);
+}
+
+.settings-drawer__body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+/* Empty State / Preview Card */
+.preview-card {
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 32px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-xs);
+  margin: auto 0;
+}
+
+.preview-card__badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  padding: 4px 14px;
+  border-radius: var(--r-full);
+  letter-spacing: -0.01em;
+}
+
+.preview-card__badge--love {
+  color: var(--love);
+  background: var(--love-soft);
+  border-color: rgba(244, 63, 94, 0.2);
+}
+
+.preview-card h3 {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.03em;
+}
+
+.preview-card p {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 440px;
+  line-height: 1.6;
+}
+
+.preview-features {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
+  margin-top: 4px;
+  text-align: left;
+}
+
+.preview-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  transition: transform 0.2s;
+}
+
+.preview-feature:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
+
+.preview-feature__icon {
+  font-size: 18px;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.preview-feature__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.preview-feature__text strong {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.preview-feature__text span {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* Primary Action Buttons */
+.btn--primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  padding: 12px 20px !important;
+  border-radius: var(--r-md) !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35) !important;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.45) !important;
+}
+
+.btn--primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn--love {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.35) !important;
+}
+
+.btn--love:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.45) !important;
+}
+
+/* Quote speech bubble enhancement */
+.evidence blockquote, .love-quote-card {
+  background: #fffbe6 !important;
+  border: 1px solid #fef08a !important;
+  border-left: 3px solid #eab308 !important;
+  border-radius: 4px 10px 10px 4px !important;
+  padding: 8px 12px !important;
+  font-size: 12.5px !important;
+  color: #713f12 !important;
+  margin: 6px 0 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+@media (prefers-color-scheme: dark) {
+  .evidence blockquote, .love-quote-card {
+    background: rgba(234, 179, 8, 0.08) !important;
+    border-color: rgba(234, 179, 8, 0.2) !important;
+    border-left-color: #eab308 !important;
+    color: #fef08a !important;
+  }
 }
 
 /* ============================================================

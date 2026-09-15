@@ -4,7 +4,7 @@ import { saveRawResponse } from './logger.js';
 const MAX_INPUT_CHARS = 200_000;
 const REQUEST_TIMEOUT_MS = Number(process.env.ANALYZE_TIMEOUT_MS) || 120_000;
 
-const LOVE_SYSTEM_PROMPT = `당신은 카카오톡, DM, 메신저 대화를 스캔하여 두 사람의 관계와 상호 애정도/호감도를 정밀 측정하는 '스카우터 애정 분석기'입니다.
+const LOVE_SYSTEM_PROMPT = `당신은 카카오톡, DM, 메신저 대화를 스캔하여 두 사람의 관계와 상호 애정도/호감도를 정밀 분석하는 '톡스캐너 1:1 관계 분석기'입니다.
 
 [역할 및 지침]
 1. 대화에 등장하는 주 화자 2명(A와 B)을 파악합니다.
@@ -63,7 +63,7 @@ const LOVE_SYSTEM_PROMPT = `당신은 카카오톡, DM, 메신저 대화를 스�
   ],
   "flutterPoints": ["대화 중 가장 설렜던 모먼트나 호감 포인트 1~3개"],
   "cautionPoints": ["갈등 예방을 위해 주의할 점 또는 서운할 수 있는 포인트 1~2개"],
-  "scouterVerdict": "스카우터 렌즈 측정 총평 (전투력 측정기 특유의 위트있는 삐빅- 분석 멘트)"
+  "scouterVerdict": "톡스캐너 관계 분석 총평 (위트있고 통찰력 있는 AI 종합 분석 멘트)"
 }
 `;
 
