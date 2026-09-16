@@ -78,6 +78,35 @@ function el(tag, opts = {}, children = []) {
   return node;
 }
 
+function createSvgIcon(pathD, size = 14, fillRule = null) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 20 20');
+  svg.setAttribute('fill', 'currentColor');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  if (fillRule) {
+    path.setAttribute('fill-rule', fillRule);
+    path.setAttribute('clip-rule', fillRule);
+  }
+  path.setAttribute('d', pathD);
+  svg.appendChild(path);
+  return svg;
+}
+
+const createShareSvg = () =>
+  createSvgIcon('M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z', 13);
+
+const createChatSvg = () =>
+  createSvgIcon('M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zm-5 0h-2v2h2V9z', 14, 'evenodd');
+
+const createLoveSvg = () =>
+  createSvgIcon('M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z', 14, 'evenodd');
+
+const createGiftSvg = () =>
+  createSvgIcon('M5 5a3 3 0 015-2.236A3 3 0 0115 5h1a2 2 0 012 2v2a2 2 0 01-2 2h-1v5a2 2 0 01-2 2H7a2 2 0 01-2-2v-5H4a2 2 0 01-2-2V7a2 2 0 012-2h1zm4-1a1 1 0 00-1 1h2a1 1 0 00-1-1zm3 1a1 1 0 011-1 1 1 0 011 1h-2zM4 7v2h5V7H4zm7 0v2h5V7h-5zm-5 4v6h4v-6H6zm6 6h4v-6h-4v6z', 14, 'evenodd');
+
 function bandFor(confidence, estimable) {
   if (estimable) return confidence >= 70 ? BANDS.high : BANDS.mid;
   return confidence >= 25 ? BANDS.low : BANDS.none;
@@ -138,7 +167,7 @@ const state = {
 };
 
 let toastTimer = null;
-function showToast(message) {
+function showToast(message, duration = 3400) {
   const toast = $('toast');
   if (!toast) return;
   toast.textContent = message;
@@ -146,7 +175,60 @@ function showToast(message) {
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
     toast.hidden = true;
-  }, 3400);
+  }, duration);
+}
+
+// 클라이언트 사이드 개인정보(PII) 1차 사전 마스킹 유틸
+function sanitizeClientPII(text) {
+  if (!text || typeof text !== 'string') return { text: '', maskedCount: 0 };
+
+  let maskedCount = 0;
+  let out = text;
+
+  // 1. 주민등록번호
+  const rrnRegex = /\b\d{6}\s*[-–—]\s*[1-4]\d{6}\b/g;
+  out = out.replace(rrnRegex, () => {
+    maskedCount++;
+    return '[주민번호]';
+  });
+
+  // 2. 신용카드 번호
+  const cardRegex = /\b(?:\d{4}[-\s]?){3}\d{4}\b/g;
+  out = out.replace(cardRegex, () => {
+    maskedCount++;
+    return '[카드번호]';
+  });
+
+  // 3. 이메일 주소
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  out = out.replace(emailRegex, () => {
+    maskedCount++;
+    return '[이메일]';
+  });
+
+  // 4. 휴대전화 및 일반 전화번호
+  const phoneRegex = /(?:01[016789]|02|0[3-9][0-9])\s*[-.]?\s*\d{3,4}\s*[-.]?\s*\d{4}/g;
+  out = out.replace(phoneRegex, () => {
+    maskedCount++;
+    return '[전화번호]';
+  });
+
+  // 5. 은행 계좌번호 (YYYY-MM-DD 등 날짜 형식 제외)
+  const accountRegex = /\b(?!\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}\b)(\d{2,6}[-\s]\d{2,6}[-\s]\d{2,8}(?:[-\s]\d{1,6})?)\b/g;
+  out = out.replace(accountRegex, (match) => {
+    if (/^\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}$/.test(match.trim())) return match;
+    maskedCount++;
+    return '[계좌번호]';
+  });
+
+  // 6. 도로명 및 지번 상세주소
+  const addressRegex = /(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별자치시|특별자치도|광역시|도|시)?\s+[가-힣0-9\s]+?(?:로|길|동|읍|면|리|호|층|아파트|빌딩|오피스텔|마을|단지|번지)\s*\d+[-~]?\d*/g;
+  out = out.replace(addressRegex, () => {
+    maskedCount++;
+    return '[상세주소]';
+  });
+
+  return { text: out, maskedCount };
 }
 
 // 모바일 브라우저, 카카오톡 인앱 브라우저 및 HTTP 환경에서도 안전한 클립보드 복사 유틸
@@ -294,7 +376,7 @@ function syncModelOptions() {
         select.value = state.models[0]?.id || 'deepseek/deepseek-v4-flash';
       }
       if (badge) {
-        badge.textContent = '⚡ 개인 키 (모델 자유 선택)';
+        badge.textContent = '개인 API 키 적용 중';
         badge.style.color = '#059669';
         badge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
         badge.style.background = 'rgba(16, 185, 129, 0.15)';
@@ -302,7 +384,7 @@ function syncModelOptions() {
     } else {
       select.value = 'deepseek/deepseek-v4-flash';
       if (badge) {
-        badge.textContent = '딥시크 V4.1 FLASH 고정';
+        badge.textContent = '기본 모델';
         badge.style.color = '';
         badge.style.borderColor = '';
         badge.style.background = '';
@@ -344,7 +426,7 @@ function saveCustomApiKey(explicitKey) {
   localStorage.setItem('scouter_custom_api_key', key);
   loadCustomApiKey();
   refreshQuota();
-  showToast('⚡ 본인 API 키 적용 완료! 모델을 자유롭게 선택할 수 있으며 10분 쿨다운 없이 무제한 이용됩니다.');
+  showToast('개인 API 키가 적용되었습니다. 쿨다운 없이 무제한 이용 가능합니다.');
 }
 
 function clearCustomApiKey() {
@@ -355,7 +437,7 @@ function clearCustomApiKey() {
   if (input2) input2.value = '';
   loadCustomApiKey();
   refreshQuota();
-  showToast('개인 키가 해제되어 서버 무료 모드(딥시크 고정, 10분 쿨다운)로 전환되었습니다.');
+  showToast('개인 키가 삭제되어 기본 무료 모드로 전환되었습니다.');
 }
 
 function bindApiKeyEvents() {
@@ -403,7 +485,7 @@ function updateCooldownUI() {
     if (banner) banner.hidden = true;
     if (btn && !state.busy) {
       btn.disabled = false;
-      btn.textContent = '대화 참여자 분석하기 (무제한⚡)';
+      btn.textContent = '대화 분석 (무제한)';
     }
     return;
   }
@@ -415,13 +497,13 @@ function updateCooldownUI() {
     if (text) text.textContent = `다음 분석 가능까지 남은 시간: ${formatTime(state.cooldownRemaining)}`;
     if (btn && !state.busy) {
       btn.disabled = true;
-      btn.textContent = `분석 대기 중 (${formatTime(state.cooldownRemaining)})`;
+      btn.textContent = `대기 중 (${formatTime(state.cooldownRemaining)})`;
     }
   } else {
     if (banner) banner.hidden = true;
     if (btn && !state.busy) {
       btn.disabled = false;
-      btn.textContent = '✨ 대화 참여자 분석하기';
+      btn.textContent = '대화 분석';
     }
   }
 }
@@ -460,12 +542,11 @@ function setCooldown(seconds) {
 function setBusy(busy, label) {
   state.busy = busy;
   const analyzeBtn = $('analyze');
+  if (!analyzeBtn) return;
 
   if (state.hasCustomKey) {
-    if (analyzeBtn) {
-      analyzeBtn.disabled = busy;
-      analyzeBtn.textContent = busy ? (label || '처리 중…') : '대화 참여자 분석하기 (무제한⚡)';
-    }
+    analyzeBtn.disabled = busy;
+    analyzeBtn.textContent = busy ? (label || '처리 중…') : '대화 분석 (무제한)';
     $('sample').disabled = busy;
     $('file-btn').disabled = busy;
     document.querySelectorAll('.person-pick input, #run-selected, #select-all, #select-none').forEach((node) => {
@@ -476,7 +557,7 @@ function setBusy(busy, label) {
 
   if (state.quotaExhausted) {
     analyzeBtn.disabled = true;
-    analyzeBtn.textContent = '오늘 무료 한도 마감 (초기화 대기 중)';
+    analyzeBtn.textContent = '오늘 무료 한도 마감';
     return;
   }
 
@@ -487,9 +568,9 @@ function setBusy(busy, label) {
   if (busy) {
     analyzeBtn.textContent = label || '처리 중…';
   } else if (state.cooldownRemaining > 0) {
-    analyzeBtn.textContent = `분석 대기 중 (${formatTime(state.cooldownRemaining)})`;
+    analyzeBtn.textContent = `대기 중 (${formatTime(state.cooldownRemaining)})`;
   } else {
-    analyzeBtn.textContent = '✨ 대화 참여자 분석하기';
+    analyzeBtn.textContent = '대화 분석';
   }
 
   document.querySelectorAll('.person-pick input, #run-selected, #select-all, #select-none').forEach((node) => {
@@ -546,19 +627,15 @@ function stopTimers() {
 function renderEmpty() {
   $('results-body').replaceChildren(
     el('div', { class: 'state state--empty' }, [
-      el('h3', { text: '아직 판독한 대화가 없습니다' }),
+      el('h3', { text: '아직 분석한 대화가 없습니다' }),
       el('p', {
-        text: '왼쪽에 대화를 붙여넣거나 .txt 파일을 끌어다 놓고 "1단계 · 등장인물 찾기"를 누르세요.',
+        text: '왼쪽에 대화를 붙여넣거나 .txt 파일을 올린 후 "대화 분석"을 누르세요.',
       }),
       el('ol', { class: 'state__steps' }, [
-        el('li', {}, [el('b', { text: '1단계' }), el('span', { text: '대화에서 등장인물 목록을 뽑습니다' })]),
-        el('li', {}, [el('b', { text: '2단계' }), el('span', { text: '판독할 사람을 체크합니다 (여러 명 가능)' })]),
-        el('li', {}, [el('b', { text: '3단계' }), el('span', { text: '한 명씩 순서대로 판독하며 진행 상황을 보여줍니다' })]),
+        el('li', {}, [el('b', { text: '1단계' }), el('span', { text: '대화에서 참여자 목록을 추출합니다' })]),
+        el('li', {}, [el('b', { text: '2단계' }), el('span', { text: '분석할 대상을 선택합니다 (최대 4명)' })]),
+        el('li', {}, [el('b', { text: '3단계' }), el('span', { text: '발화 데이터를 기반으로 4축 성향을 분석합니다' })]),
       ]),
-      el('p', {
-        class: 'state__aside',
-        text: '등장인물이 많아도 한 명씩 처리하기 때문에 한 번에 몰아서 판독할 때보다 실패가 적습니다.',
-      }),
     ]),
   );
 }
@@ -575,20 +652,25 @@ async function findSpeakers() {
     }
 
     if (state.cooldownRemaining > 0) {
-      showToast(`분석 쿨다운 대기 중입니다. ${formatTime(state.cooldownRemaining)} 후 다시 시도해 주세요. (공유로 친구가 방문하면 5분 단축됩니다!)`);
+      showToast(`분석 쿨다운 대기 중입니다. ${formatTime(state.cooldownRemaining)} 후 다시 시도해 주세요. (공유로 친구가 방문하면 5분 단축됩니다)`);
       return;
     }
   }
 
-  const conversation = $('chat').value.trim();
-  if (conversation.length < 20) {
+  const rawConversation = $('chat').value.trim();
+  if (rawConversation.length < 20) {
     renderError('대화 내용이 너무 짧습니다. 최소 몇 줄 이상 붙여넣어 주세요.');
     return;
   }
 
+  const { text: conversation, maskedCount } = sanitizeClientPII(rawConversation);
+  if (maskedCount > 0) {
+    showToast(`개인정보(${maskedCount}건: 전화번호/계좌/주소 등)가 감지되어 안전하게 자동 마스킹 처리되었습니다.`, 4000);
+  }
+
   state.conversation = conversation;
-  setBusy(true, '인물 찾는 중…');
-  renderLoading('대화에서 등장인물을 찾는 중', '이름과 발화 수만 뽑습니다. 몇 초면 끝납니다.');
+  setBusy(true, '참여자 분석 중…');
+  renderLoading('대화에서 참여자 목록 추출 중', '참여자별 발화 빈도를 계산하고 있습니다.');
   scrollToResults('results');
 
   try {
@@ -614,7 +696,7 @@ async function findSpeakers() {
       if (data?.error?.retryAfterSec && !state.hasCustomKey) {
         setCooldown(data.error.retryAfterSec);
       }
-      renderError(data?.error?.message || '등장인물을 찾지 못했습니다.', data?.error?.code);
+      renderError(data?.error?.message || '참여자 정보를 불러오지 못했습니다.', data?.error?.code);
       if (res.status === 429) refreshQuota();
       return;
     }
@@ -637,7 +719,7 @@ async function findSpeakers() {
     state.activeTab = null;
 
     if (data.speakers && data.speakers.length > MAX_SELECT_PERSONS) {
-      showToast(`등장인물이 ${data.speakers.length}명 발견되어 상위 4명이 자동 선택되었습니다. (최대 4명)`);
+      showToast(`참여자가 ${data.speakers.length}명 발견되어 상위 4명이 자동 선택되었습니다. (최대 4명)`);
     }
 
     renderQuota(data);
@@ -660,9 +742,9 @@ function stepsBar() {
   const done = state.results.length > 0 && !running;
 
   const steps = [
-    { n: 1, label: '등장인물 찾기', state: hasSpeakers ? 'done' : 'active' },
-    { n: 2, label: '판독 대상 선택', state: hasSpeakers ? (running || done ? 'done' : 'active') : 'idle' },
-    { n: 3, label: '한 명씩 판독', state: running ? 'active' : done ? 'done' : 'idle' },
+    { n: 1, label: '인물 추출', state: hasSpeakers ? 'done' : 'active' },
+    { n: 2, label: '대상 선택', state: hasSpeakers ? (running || done ? 'done' : 'active') : 'idle' },
+    { n: 3, label: '성향 분석', state: running ? 'active' : done ? 'done' : 'idle' },
   ];
 
   return el('ol', { class: 'steps' },
@@ -679,19 +761,18 @@ function summaryBlock(data) {
   const tags = [];
   if (data.format) tags.push(el('span', { class: 'tag', text: data.format }));
   if (data.messageCount) tags.push(el('span', { class: 'tag', text: `메시지 ${data.messageCount}개` }));
-  tags.push(el('span', { class: 'tag', text: `등장인물 ${data.speakers.length}명` }));
-  if (data.meta?.modelName) tags.push(el('span', { class: 'tag', text: data.meta.modelName }));
+  tags.push(el('span', { class: 'tag', text: `참여자 ${data.speakers.length}명` }));
+  if (data.meta?.modelName && state.hasCustomKey) tags.push(el('span', { class: 'tag', text: data.meta.modelName }));
 
   return el('div', { class: 'conv' }, [
     el('div', { class: 'conv__head' }, [
-      el('h2', { text: '대화 요약' }),
+      el('h2', { text: '대화 개요' }),
       el('div', { class: 'conv__tags' }, tags),
     ]),
     data.summary ? el('p', { class: 'conv__summary', text: data.summary }) : null,
     data.meta?.truncated
       ? el('p', { class: 'notice' }, [
-          el('span', { text: '⚠', attrs: { 'aria-hidden': 'true' } }),
-          el('span', { text: '대화가 길어 앞부분만 분석했습니다.' }),
+          el('span', { text: '대화 내용이 방대하여 최신 대화를 중심으로 분석했습니다.' }),
         ])
       : null,
   ]);
@@ -767,7 +848,7 @@ function speakerBlock(data) {
 
   const start = el('button', {
     class: 'btn btn--primary btn--sm',
-    text: hasCompletedResults ? '✅ 판독 완료됨' : `선택한 ${state.selected.size}명 판독 시작`,
+    text: hasCompletedResults ? '분석 완료' : `선택 인물 분석 (${state.selected.size}명)`,
     attrs: { type: 'button', id: 'run-selected' },
   });
   start.disabled = state.selected.size === 0 || state.busy || hasCompletedResults;
@@ -778,7 +859,7 @@ function speakerBlock(data) {
   return el('section', { class: 'pick' }, [
     el('div', { class: 'pick__head' }, [
       el('div', { class: 'pick__title-wrap', style: 'display:flex; align-items:center; gap:8px;' }, [
-        el('h3', { class: 'section-title', text: `2단계 · 판독할 사람 선택 (${data.speakers.length}명 발견)` }),
+        el('h3', { class: 'section-title', text: `분석 대상 선택 (${data.speakers.length}명)` }),
         el('span', { class: 'badge-limit', text: `최대 ${MAX_SELECT_PERSONS}명` }),
       ]),
       el('div', { class: 'pick__actions' }, [selectAll, start]),
@@ -786,7 +867,7 @@ function speakerBlock(data) {
     el('div', { class: 'pick__list' }, rows),
     el('p', {
       class: 'field__hint',
-      text: `체크한 사람만 한 명씩 순서대로 판독합니다. (최대 ${MAX_SELECT_PERSONS}명까지 선택 가능)`,
+      text: `선택한 참여자의 발화 데이터를 개별 분석합니다. (최대 ${MAX_SELECT_PERSONS}명)`,
     }),
   ]);
 }
@@ -804,9 +885,9 @@ function progressBlock() {
 
   const headText = state.running
     ? current
-      ? `${targets.length}명 중 ${currentIndex + 1}번째 · ${current.name} 판독 중`
+      ? `${targets.length}명 중 ${currentIndex + 1}번째 · ${current.name} 분석 중`
       : '준비 중'
-    : `판독 완료 · 성공 ${doneCount}명${state.errors.size ? ` · 실패 ${state.errors.size}명` : ''}`;
+    : `분석 완료 · 완료 ${doneCount}명${state.errors.size ? ` · 실패 ${state.errors.size}명` : ''}`;
 
   const items = targets.map((speaker) => {
     const status = STATUS[state.status.get(speaker.name) || 'pending'];
@@ -824,7 +905,7 @@ function progressBlock() {
 
   return el('section', { class: 'progress' }, [
     el('div', { class: 'progress__head' }, [
-      el('h3', { class: 'section-title', text: '3단계 · 판독 진행' }),
+      el('h3', { class: 'section-title', text: '분석 진행 상황' }),
       el('span', { class: 'progress__meta', attrs: { id: 'progress-elapsed' }, text: '' }),
     ]),
     el('p', { class: 'progress__caption', text: headText, attrs: { 'aria-live': 'polite' } }),
@@ -1088,8 +1169,8 @@ async function getReferralUrl(shareData = null) {
 async function shareResult(person = null) {
   const isSingle = Boolean(person);
   const title = isSingle
-    ? `[톡스캐너] ${person.name}님의 MBTI 분석 결과`
-    : `[톡스캐너] 대화 참여자 MBTI 성향 분석 결과`;
+    ? `[톡스캐너] ${person.name}님의 성향 분석 결과`
+    : `[톡스캐너] 대화 참여자 성향 분석 결과`;
 
   const shareData = {
     type: 'mbti',
@@ -1101,16 +1182,16 @@ async function shareResult(person = null) {
 
   // 추천인 코드가 포함된 URL 발급 (분석 결과 데이터 저장)
   const url = await getReferralUrl(shareData);
-  const bonusNotice = `\n🎁 [친구 초대 혜택] 이 링크로 방문하면 대기 시간이 5분 단축됩니다!\n${url}`;
+  const bonusNotice = `\n[친구 초대 혜택] 이 링크로 방문하면 대기 시간이 5분 단축됩니다.\n${url}`;
 
   let text = '';
   if (isSingle) {
-    text = `[톡스캐너 · MBTI 분석 결과]\n✨ ${person.name}님의 MBTI: ${person.type}\n📊 종합 신뢰도: ${person.overallConfidence}%\n${person.summary ? `💬 "${person.summary}"\n` : ''}\n🔎 대화로 보는 우리들의 성향 분석하기:${bonusNotice}`;
+    text = `[톡스캐너 · 대화 성향 분석 결과]\n• 참여자: ${person.name} (${person.type})\n• 종합 신뢰도: ${person.overallConfidence}%\n${person.summary ? `• 요약: "${person.summary}"\n` : ''}\n대화 성향 분석 바로가기:${bonusNotice}`;
   } else {
     const summaryLines = (state.results || [])
-      .map((r) => `⚡ ${r.name}: ${r.type} (${r.overallConfidence}%)`)
+      .map((r) => `• ${r.name}: ${r.type} (${r.overallConfidence}%)`)
       .join('\n');
-    text = `[톡스캐너 · 대화 분석 결과]\n참여자 성향 분석 (${(state.results || []).length}명):\n${summaryLines}\n\n🔎 우리 대화방 MBTI 측정해보기:${bonusNotice}`;
+    text = `[톡스캐너 · 대화 성향 분석 결과]\n참여자 성향 분석 (${(state.results || []).length}명):\n${summaryLines}\n\n대화 성향 분석 바로가기:${bonusNotice}`;
   }
 
   // 1. Web Share API (모바일 브라우저 카톡/메시지/SNS 연동)
@@ -1132,7 +1213,7 @@ async function shareResult(person = null) {
   // 2. 데스크톱 및 모바일 클립보드 복사
   const copied = await copyToClipboard(text, '아래 분석 결과를 복사하여 카카오톡에 공유하세요:');
   if (copied) {
-    showToast('📋 초대 링크가 포함된 분석 결과가 복사되었습니다! 카톡에 공유하여 5분 단축 혜택을 받으세요.');
+    showToast('초대 링크가 포함된 분석 결과가 복사되었습니다. 카톡 등에 공유하여 5분 단축 혜택을 받으세요.');
   } else {
     showToast('결과 복사에 실패했습니다.');
   }
@@ -1141,10 +1222,10 @@ async function shareResult(person = null) {
 function personPanel(person, index) {
   const shareBtn = el('button', {
     class: 'btn btn--ghost btn--sm btn--share',
-    attrs: { type: 'button', title: '카카오톡이나 SNS에 이 결과 공유' },
+    attrs: { type: 'button', title: '이 결과 공유' },
   }, [
-    el('span', { text: '💬', attrs: { 'aria-hidden': 'true' } }),
-    el('span', { text: `${person.name} 결과 카톡/공유` }),
+    createShareSvg(),
+    el('span', { text: `${person.name} 결과 공유` }),
   ]);
   shareBtn.addEventListener('click', () => shareResult(person));
 
@@ -1173,8 +1254,7 @@ function personPanel(person, index) {
   if (person.estimableCount === 0) {
     children.push(
       el('p', { class: 'notice' }, [
-        el('span', { text: '⚠', attrs: { 'aria-hidden': 'true' } }),
-        el('span', { text: '근거가 부족해 어떤 축도 확정하지 못했습니다. 대화를 더 넣으면 판정됩니다.' }),
+        el('span', { text: '근거가 부족해 어떤 축도 확정하지 못했습니다. 대화를 더 추가하면 판정됩니다.' }),
       ]),
     );
   }
@@ -1277,15 +1357,15 @@ function resultsBlock() {
 
   const isSingle = Boolean(state.results && state.results.length === 1);
   const headTitle = isSingle && state.results[0]?.name
-    ? `${state.results[0].name}님의 MBTI 판독 결과`
+    ? `${state.results[0].name}님의 성향 판독 결과`
     : `판독 결과 (${state.results.length}명)`;
 
-  const shareBtnText = isSingle ? '결과 공유하기' : '전체 결과 공유하기';
+  const shareBtnText = isSingle ? '결과 공유' : '전체 결과 공유';
   const shareAllBtn = el('button', {
     class: 'btn btn--ghost btn--sm btn--share',
-    attrs: { type: 'button', title: isSingle ? 'MBTI 판독 결과 카톡/링크 공유' : '전체 판독 결과 카톡/링크 공유' },
+    attrs: { type: 'button', title: isSingle ? '분석 결과 링크 공유' : '전체 분석 결과 링크 공유' },
   }, [
-    el('span', { text: '🔗', attrs: { 'aria-hidden': 'true' } }),
+    createShareSvg(),
     el('span', { text: shareBtnText }),
   ]);
   shareAllBtn.addEventListener('click', () => shareResult(isSingle ? state.results[0] : null));
@@ -1313,11 +1393,11 @@ function renderFlow() {
     const isSingle = Boolean(state.results && state.results.length === 1 && state.activeTab);
     const targetName = isSingle ? state.results[0]?.name : null;
     const titleText = targetName
-      ? `친구가 공유한 ${targetName}님의 MBTI 분석 결과입니다`
-      : '친구가 공유한 톡방 MBTI 분석 결과입니다';
+      ? `공유받은 ${targetName}님의 성향 분석 결과입니다`
+      : '공유받은 대화 성향 분석 결과입니다';
     const subText = targetName
-      ? `${targetName}님의 4축 MBTI 성향 판독 결과입니다. (초대 혜택 5분 단축 적용됨 ⚡)`
-      : '참여자들의 4축 MBTI 성향 분석 결과입니다. (초대 혜택 5분 단축 적용됨 ⚡)';
+      ? `${targetName}님의 4축 성향 판독 결과입니다. (초대 혜택 5분 단축 적용)`
+      : '참여자들의 4축 성향 분석 결과입니다. (초대 혜택 5분 단축 적용)';
 
     const newBtn = el('button', {
       class: 'btn btn--primary btn--sm',
@@ -1328,7 +1408,7 @@ function renderFlow() {
 
     const banner = el('div', { class: 'shared-result-banner' }, [
       el('div', { class: 'shared-result-banner__content' }, [
-        el('span', { class: 'shared-result-banner__icon', text: '💬' }),
+        el('span', { class: 'shared-result-banner__icon' }, [createChatSvg()]),
         el('div', {}, [
           el('strong', { text: titleText }),
           el('p', { text: subText }),
@@ -1522,8 +1602,8 @@ async function loadFile(file) {
     const originalMb = (file.size / 1024 / 1024).toFixed(1);
     if (isLarge) {
       const charsText = `${Math.round(text.length / 10000)}만 자`;
-      setFileInfo(`⚡ 대용량 파일(${originalMb}MB) 감지: 최신 대화(약 2.5MB / ${charsText})를 자동 발췌하여 완벽히 불러왔습니다.`, false);
-      showToast(`⚡ ${originalMb}MB 대용량 파일에서 최신 대화(약 ${charsText})를 자동으로 발췌했습니다!`);
+      setFileInfo(`대용량 파일(${originalMb}MB) 감지: 최신 대화(약 2.5MB / ${charsText})를 자동 발췌하여 불러왔습니다.`, false);
+      showToast(`${originalMb}MB 대용량 파일에서 최신 대화(약 ${charsText})를 자동으로 발췌했습니다.`);
     } else {
       setFileInfo(`${file.name} · ${(file.size / 1024).toFixed(1)}KB 불러옴`, false);
     }
@@ -1601,7 +1681,7 @@ function renderQuota(payload) {
 
   let message = '';
   if (state.hasCustomKey) {
-    message = ' · ⚡ 개인 API 키 적용 중 (무제한 이용 가능)';
+    message = ' · 개인 API 키 적용 중 (무제한 이용 가능)';
     node.classList.remove('is-out', 'is-low');
   } else if (dailyRemaining <= 0) {
     message = ` · 오늘 무료 분석 한도(${dailyLimit}회)를 모두 사용하셨습니다 (내일 자정 초기화)`;
@@ -1633,7 +1713,7 @@ function renderQuota(payload) {
   if (!state.hasCustomKey && usage.hasReferralBonus) {
     children.push(
       el('div', { class: 'quota__bonus' }, [
-        el('span', { text: '⚡ 친구 초대 쿨다운 5분 단축 적용 중' }),
+        el('span', { text: '친구 초대 쿨다운 5분 단축 적용 중' }),
       ]),
     );
   }
@@ -1656,7 +1736,7 @@ async function refreshQuota() {
         const diff = state.cooldownRemaining - serverCooldown;
         state.cooldownRemaining = serverCooldown;
         if (diff >= 180) {
-          showToast('⚡ 친구 초대 방문으로 대기 시간이 5분 단축되었습니다!');
+          showToast('친구 초대 방문으로 대기 시간이 5분 단축되었습니다.');
         }
         updateCooldownUI();
       }
@@ -1665,7 +1745,7 @@ async function refreshQuota() {
         const diff = state.loveCooldownRemaining - serverLoveCooldown;
         state.loveCooldownRemaining = serverLoveCooldown;
         if (diff >= 180) {
-          showToast('⚡ 친구 초대 방문으로 애정 분석 대기 시간이 5분 단축되었습니다!');
+          showToast('친구 초대 방문으로 애정 분석 대기 시간이 5분 단축되었습니다.');
         }
         updateLoveCooldownUI();
       }
@@ -1688,7 +1768,7 @@ async function copyInviteLink() {
     } else if (state.currentMode === 'mbti' && state.results && state.results.length) {
       shareData = {
         type: 'mbti',
-        title: '톡방 참여자 MBTI 판독 결과',
+        title: '대화 성향 판독 결과',
         speakerData: state.speakerData,
         results: state.results,
         singlePerson: state.activeTab,
@@ -1705,12 +1785,12 @@ async function copyInviteLink() {
     const base = window.location.origin || `${window.location.protocol}//${window.location.host}`;
     const url = code ? `${base}/?ref=${code}` : base;
     const shareText = shareData
-      ? `[톡스캐너] ${shareData.title}를 확인해 보세요! (접속 시 대기 5분 단축 ⚡)\n${url}`
-      : `[톡스캐너] 이 링크로 접속하면 대기 시간이 5분 단축됩니다! ⚡\n${url}`;
+      ? `[톡스캐너] ${shareData.title}를 확인해 보세요! (접속 시 대기 5분 단축)\n${url}`
+      : `[톡스캐너] 링크 접속 시 대기 시간이 5분 단축됩니다.\n${url}`;
 
     const copied = await copyToClipboard(shareText, '아래 초대 링크를 복사하여 친구에게 전달하세요:');
     if (copied) {
-      showToast('🎉 5분 단축 초대 링크가 복사되었습니다! 친구에게 보내거나 새 탭에서 열면 즉시 5분이 단축됩니다. ⚡');
+      showToast('5분 단축 초대 링크가 복사되었습니다. 친구에게 공유하거나 새 탭에서 열면 즉시 5분이 단축됩니다.');
     } else {
       showToast('초대 링크 복사에 실패했습니다.');
     }
@@ -1741,11 +1821,11 @@ function renderSharedResult(shareData) {
   if (shareData.type === 'love' && shareData.data) {
     switchMode('love');
     renderLoveResults(shareData.data, true /* isShared */);
-    showToast('💌 친구가 공유한 1:1 애정 분석 결과가 로드되었습니다.');
+    showToast('공유받은 1:1 애정 분석 결과가 로드되었습니다.');
   } else if (shareData.type === 'mbti') {
     switchMode('mbti');
     renderSharedMbti(shareData);
-    showToast('💬 친구가 공유한 톡방 MBTI 분석 결과가 로드되었습니다.');
+    showToast('공유받은 대화 성향 분석 결과가 로드되었습니다.');
   }
 }
 
@@ -1753,7 +1833,7 @@ function renderSharedMbti(shareData) {
   state.isSharedView = true;
   state.speakerData = shareData.speakerData || {
     speakers: (shareData.results || []).map((r) => ({ name: r.name, lines: 10 })),
-    summary: shareData.title || '대화 참여자 MBTI 분석 결과',
+    summary: shareData.title || '대화 참여자 성향 분석 결과',
   };
   state.results = shareData.results || [];
   state.running = false;
@@ -1775,10 +1855,10 @@ function renderInviteWelcomeBanner() {
     attrs: { id: 'invite-welcome-banner', style: 'margin: 12px 14px 0;' },
   }, [
     el('div', { class: 'shared-result-banner__content' }, [
-      el('span', { class: 'shared-result-banner__icon', text: '🎁' }),
+      el('span', { class: 'shared-result-banner__icon' }, [createGiftSvg()]),
       el('div', {}, [
-        el('strong', { text: '친구 초대 링크로 접속하셨습니다!' }),
-        el('p', { text: '분석 대기 시간 5분 단축 혜택이 적용되었습니다. 아래에 대화를 입력하고 무료 분석을 시작해 보세요! ⚡' }),
+        el('strong', { text: '친구 초대 링크로 접속하셨습니다' }),
+        el('p', { text: '분석 대기 시간 5분 단축 혜택이 적용되었습니다. 대화를 입력하고 분석을 시작해 보세요.' }),
       ]),
     ]),
   ]);
@@ -1808,10 +1888,10 @@ async function checkReferralParam() {
       const data = await res.json();
       if (data?.ok) {
         if (data.rewardApplied) {
-          showToast('🎉 친구 초대로 접속하셨습니다! 분석 쿨다운 5분 단축 혜택이 적용되었습니다. ⚡');
+          showToast('친구 초대로 접속하셨습니다. 분석 쿨다운 5분 단축 혜택이 적용되었습니다.');
           refreshQuota();
         } else if (data.isSelf) {
-          showToast('ℹ️ 본인 IP 초대 링크로 접속하셨습니다. (친구가 다른 기기/IP에서 접속해야 5분 단축이 적용됩니다)');
+          showToast('본인 IP 초대 링크로 접속하셨습니다. (친구가 다른 기기/네트워크에서 접속해야 5분 단축이 적용됩니다)');
         }
       }
       if (!resolvedShareData && data?.shareData) {
@@ -1857,56 +1937,79 @@ async function loadModels() {
 
 const LEGAL_TEXTS = {
   terms: {
-    title: '서비스 이용안내 (Terms of Service)',
+    title: '서비스 이용약관 (Terms of Service)',
     html: `
-      <h4>제1조 (목적)</h4>
-      <p>본 약관은 '톡스캐너'(이하 '서비스')가 제공하는 인공지능 기반 대화 성향(MBTI) 및 1:1 애정도 분석 서비스의 이용 조건, 절차 및 기본 운영 방침을 규정함을 목적으로 합니다.</p>
+      <h4>제1조 (목적 및 서비스의 성격)</h4>
+      <p>본 약관은 이용자가 '톡스캐너'(이하 '서비스')가 제공하는 인공지능(AI) 기반 메신저 대화 패턴 및 1:1 관계 분석 서비스를 이용함에 있어 서비스 제공자와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다. 본 서비스는 인공지능 기술의 일상적 유용성을 검증하기 위한 <strong>오락 및 친목 목적의 테스트(Beta) 서비스</strong>입니다.</p>
 
-      <h4>제2조 (서비스의 본질 및 한계 안내)</h4>
+      <h4>제2조 (비의료·비상담 원칙 및 한계 고지 — 의료법 준수)</h4>
       <ul>
-        <li>본 서비스는 이용자가 입력한 대화 텍스트의 발화 패턴, 말투, 반응 양식을 대형 언어 모델(LLM)을 통해 통계적으로 추론한 추정치입니다.</li>
-        <li><strong>본 결과는 학술적·의학적으로 공인된 정식 MBTI 심리 검사나 전문 연애 심리 평가가 아니며</strong>, 일상 대화의 재미와 친목 도모를 위한 오락성 콘텐츠입니다.</li>
-        <li>분석 결과를 타인에 대한 평가, 인사 평가, 법적 판단 등의 결정적인 근거로 활용할 수 없으며, 이로 인해 발생한 직간접적 문제에 대해 서비스 제공자는 법적 책임을 지지 않습니다.</li>
+        <li>본 서비스는 대화 텍스트의 언어적 빈도와 말투를 대형 언어 모델(LLM)을 통해 통계적으로 추정한 결과물이며, <strong>「의료법」 제27조에 따른 의학적 진단, 정신건강의학과적 치료, 전문 임상 심리 평가나 심리치료(상담)에 해당하지 않으며 이를 결코 대체할 수 없습니다.</strong></li>
+        <li>본 분석 결과는 공인된 표준 심리검사가 아닌 단순 오락성 지표이므로, 타인에 대한 평가, 법적 분쟁의 증거, 혼인·연애 관계의 결정적 판정 자료 등으로 활용될 수 없으며, 이를 신뢰하여 발생한 일체의 결과에 대해 서비스 제공자는 법적 책임을 지지 않습니다.</li>
       </ul>
 
-      <h4>제3조 (공정한 자원 이용 및 제한 규칙)</h4>
+      <h4>제3조 (이용자의 정당한 권한 및 제3자 권리 보호)</h4>
       <ul>
-        <li><strong>10분 쿨다운 규칙:</strong> 고성능 유료 AI API 자원의 특정인 독점 및 남용을 방지하기 위해, <strong>톡방 MBTI 1단계(등장인물 찾기) 및 1:1 애정 분석은 각각 IP당 10분에 1번</strong>으로 호출이 제한됩니다. (단, 친구 초대 링크로 다른 사람이 접속 시 5분 단축 어드밴티지가 부여됩니다.)</li>
-        <li><strong>판독 대상 4명 제한:</strong> 효율적이고 정확한 분석 품질 유지를 위해 톡방 분석 <strong>2단계에서 선택 가능한 인원은 1회 최대 4명</strong>까지로 제한됩니다.</li>
-        <li>비정상적인 자동화 매크로, 크롤링 프로그램 또는 DDoS 성격의 요청은 사전 통보 없이 접속이 즉각 차단될 수 있습니다.</li>
+        <li>이용자는 <strong>본인이 적법하게 참여 중인 대화방</strong>의 텍스트에 한하여 분석을 의뢰하여야 합니다.</li>
+        <li>타인의 사생활 비밀 침해, 명예훼손, 모욕, 영업비밀 유출 등 불법적인 목적으로 타인의 대화를 입력하거나 분석 결과를 악용해서는 안 되며, 이로 인해 대화 당사자 간에 발생하는 민·형사상 분쟁에 대해 서비스 제공자는 고의 또는 중과실이 없는 한 책임을 부담하지 않습니다.</li>
       </ul>
 
-      <h4>제4조 (서비스의 변경 및 중단)</h4>
-      <p>서비스 제공자는 API 공급자의 정책 변경, 시스템 유지보수 또는 서버 부하 상황에 따라 서비스의 내용이나 제공 시간을 변경하거나 일시 중단할 수 있습니다.</p>
+      <h4>제4조 (보안 규정 및 악의적 프롬프트 주입 금지)</h4>
+      <ul>
+        <li>이용자는 대화 입력창에 악의적인 공격 코드, 탈옥(Jailbreak) 스크립트, 시스템 프롬프트 유출 시도 또는 프롬프트 인젝션(Prompt Injection)을 의도적으로 주입하여서는 안 됩니다.</li>
+        <li>비정상적인 자동화 매크로, 웹 스크래퍼, 분산 서비스 거부(DDoS) 공격 등 시스템 안정성을 침해하는 행위는 사전 경고 없이 IP 차단 및 법적 조치가 취해질 수 있습니다.</li>
+      </ul>
+
+      <h4>제5조 (공정한 자원 배분 및 쿨다운 정책)</h4>
+      <p>고비용의 생성형 AI 연산 자원을 다수의 이용자가 공정하게 이용할 수 있도록 다음 규칙을 적용합니다:</p>
+      <ul>
+        <li><strong>쿨다운 및 일일 한도:</strong> 무료 모드 분석은 IP당 10분의 쿨다운 및 일일 최대 한도가 적용됩니다. (공유 링크를 통한 제3자 방문 시 쿨다운 단축 혜택 제공)</li>
+        <li><strong>판독 대상 수 제한:</strong> 분석 품질 및 자원 최적화를 위해 단체방 분석은 1회 최대 4인까지로 제한됩니다.</li>
+      </ul>
+
+      <h4>제6조 (면책 및 서비스의 변경)</h4>
+      <p>서비스 제공자는 AI 기술 자체의 확률적 한계로 인한 오차, API 공급사의 서버 점검, 천재지변 등으로 인한 일시적 중단이나 분석 결과의 오류에 대하여 보증 책임을 부담하지 않으며, 사전 고지 후 서비스의 일부 또는 전부를 변경·중단할 수 있습니다.</p>
     `,
   },
   privacy: {
     title: '개인정보처리방침 (Privacy Policy)',
     html: `
-      <h4>제1조 (대화 데이터 미저장 원칙 — 절대 안심 보증)</h4>
+      <h4>제1조 (가명화·익명화 선행 처리 및 Zero-PII 원칙 — 개인정보보호법 제58조의2 준수)</h4>
+      <p>본 서비스는 이용자 및 대화 상대방의 프라이버시를 완벽히 보호하기 위해 <strong>사전 가명화(Tokenization) 및 민감정보 마스킹 파이프라인</strong>을 가동합니다:</p>
       <ul>
-        <li><strong>서버 및 데이터베이스 미저장:</strong> 이용자가 웹 화면에 입력하거나 업로드한 대화 원문은 <strong>서비스 제공자의 웹 서버, 하드디스크, 데이터베이스(DB) 등에 일절 영구 저장·보관되지 않습니다.</strong></li>
-        <li><strong>즉각 파기:</strong> 입력된 텍스트는 실시간 AI 성향/애정도 추정 처리를 위해 메모리에 일시 로드된 후, 분석 결과가 브라우저에 전송되는 즉시 메모리에서 완전 소멸(삭제)됩니다.</li>
-        <li><strong>AI 학습 미활용:</strong> 이용자의 대화 내용은 LLM 모델의 사전 훈련 및 미세 조정(Fine-tuning) 데이터셋으로 절대 활용되지 않습니다.</li>
+        <li><strong>화자 실명 가명화 및 로컬 역매핑(De-tokenization):</strong> 대화 속 등장하는 모든 이름과 닉네임은 외부 AI로 전송되기 직전 <code>[참여자1]</code>, <code>[참여자2]</code> 등의 임시 익명 토큰으로 자동 치환됩니다. 분석이 완료된 후 오직 이용자의 브라우저 화면에서만 원래 이름으로 안전하게 복원됩니다.</li>
+        <li><strong>식별 정보(PII) 사전 자동 마스킹:</strong> 전화번호, 주민등록번호, 계좌번호, 상세주소, 이메일, 신용카드 번호 등은 브라우저 및 서버 2중 필터를 통해 전송 전 <code>[전화번호]</code>, <code>[계좌번호]</code> 등으로 원천 제거됩니다.</li>
+        <li><strong>법적 지위:</strong> 외부 AI 모델로 전송되는 텍스트는 특정 개인을 식별할 수 없는 <strong>「개인정보 보호법」 제58조의2에 따른 '익명정보'</strong>에 해당하므로, 개인정보 유출 및 무단 제3자 제공의 위험이 원천 차단됩니다.</li>
       </ul>
 
-      <h4>제2조 (수집 및 일시 처리하는 최소 정보)</h4>
+      <h4>제2조 (대화 데이터 완전 미저장 원칙 — Zero-DB & Zero-Retention)</h4>
       <ul>
-        <li><strong>수집 항목:</strong> 접속 IP 주소 (단독으로 개인을 식별할 수 없는 네트워크 식별값)</li>
-        <li><strong>처리 목적:</strong> 10분 쿨다운(반복 요청 제한) 준수 확인, 친구 초대 어드밴티지 판별, 악의적 트래픽(과다 호출 방어) 제어</li>
-        <li><strong>보유 기간:</strong> 서버 프로세스의 휘발성 메모리(Cache) 내에서 쿨다운 및 일일 한도 산정 기간 동안만 유지되며, 주기적 가비지 컬렉션을 통해 완전 파기됩니다.</li>
+        <li><strong>영구 저장 일절 없음:</strong> 서비스 제공자는 대화 원문이나 분석 결과를 웹 서버 하드웨어, 파일 시스템, 데이터베이스(DB)에 일절 영구 저장하지 않습니다.</li>
+        <li><strong>즉각 파기(휘발):</strong> 입력된 텍스트는 1회성 실시간 추론 연산을 위해 메모리에 머무른 후, 브라우저로 결과가 전송되는 즉시 메모리에서 영구 소멸됩니다.</li>
+        <li><strong>AI 모델 재학습 절대 배제:</strong> API 연동을 통해 전송된 데이터는 AI 제공사(OpenAI, DeepSeek 등)의 상용 인공지능 모델 학습(Training)에 사용되지 않는 상용 엔터프라이즈 No-Training 규정을 준수합니다.</li>
       </ul>
 
-      <h4>제3조 (개인정보의 제3자 제공 및 위탁)</h4>
+      <h4>제3조 (AI 추론 처리위탁 및 국외 이전에 관한 투명성 고지 — 제28조의8 준수)</h4>
+      <p>본 서비스는 비록 익명화 처리를 선행하지만, 최고 수준의 법적 투명성을 보장하기 위해 다음과 같이 AI 추론 연산 위탁 사실을 투명하게 공표합니다:</p>
       <ul>
-        <li><strong>제공받는 자:</strong> Command Code Provider API (AI 추론 서비스 제공사)</li>
-        <li><strong>제공 목적:</strong> 실시간 대화 화자 추출, MBTI 성향 및 1:1 애정도 추론</li>
-        <li><strong>제공 항목:</strong> 이용자가 입력한 대화 텍스트 전문</li>
-        <li><strong>보유 기간:</strong> API 통신 규약에 따른 실시간 추론 완료 후 즉시 파기 (미보관)</li>
+        <li><strong>수탁자 및 인프라 제공사:</strong> Command Code Inc., OpenAI LLC 등 글로벌 AI 클라우드 제공사</li>
+        <li><strong>위탁 업무:</strong> 익명화된 대화 텍스트의 언어 패턴 분석 및 통계적 지표 산출</li>
+        <li><strong>이전되는 항목:</strong> 실명 및 민감 개인정보가 제거·가명화된 텍스트 데이터</li>
+        <li><strong>이전 국가 및 시점:</strong> 미국 등 클라우드 리전, 분석 요청 시 실시간 통신 후 즉시 소멸</li>
       </ul>
 
-      <h4>제4조 (이용자의 권리 및 데이터 삭제)</h4>
-      <p>이용자는 언제든지 텍스트 입력창을 지우거나 웹 브라우저 창을 닫음으로써 대화 입력 및 처리를 즉시 중단할 수 있습니다. 브라우저를 새로고침하면 분석 결과 및 입력 데이터는 브라우저 메모리에서도 즉시 영구 소멸됩니다.</p>
+      <h4>제4조 (통신비밀보호법 준수)</h4>
+      <p>본 서비스는 통신망 중간에서의 불법적인 감청·패킷 수집을 수행하지 않으며, 대화에 직접 참여한 이용자 본인이 자발적으로 복사·제출한 텍스트에 한하여 1회성 분석을 수행하므로 「통신비밀보호법」상의 '전기통신 감청'에 해당하지 않습니다.</p>
+
+      <h4>제5조 (최소 정보 수집 및 이용)</h4>
+      <ul>
+        <li><strong>처리 항목:</strong> 단독으로 개인을 식별할 수 없는 접속 IP 주소</li>
+        <li><strong>처리 목적:</strong> 10분 쿨다운 준수 확인, 일일 무료 한도 산정, 비정상적 악의적 트래픽 방어</li>
+        <li><strong>보유 기간:</strong> 이용량 산정 주기(최대 24시간) 이후 자동 소멸됩니다.</li>
+      </ul>
+
+      <h4>제6조 (이용자의 권리 행사)</h4>
+      <p>이용자는 웹 브라우저 탭을 닫거나 새로고침함으로써 언제든지 세션 데이터를 브라우저 메모리에서 즉시 영구 파기할 수 있습니다.</p>
     `,
   },
 };
@@ -2019,7 +2122,7 @@ function updateLoveCooldownUI() {
     if (banner) banner.hidden = true;
     if (btn && !state.loveBusy) {
       btn.disabled = false;
-      btn.textContent = '❤️ 1:1 애정 분석하기 (무제한⚡)';
+      btn.textContent = '애정 분석 (무제한)';
     }
     return;
   }
@@ -2031,13 +2134,13 @@ function updateLoveCooldownUI() {
     if (text) text.textContent = `다음 분석 가능까지 남은 시간: ${formatTime(state.loveCooldownRemaining)}`;
     if (btn && !state.loveBusy) {
       btn.disabled = true;
-      btn.textContent = `애정 분석 대기 중 (${formatTime(state.loveCooldownRemaining)})`;
+      btn.textContent = `대기 중 (${formatTime(state.loveCooldownRemaining)})`;
     }
   } else {
     if (banner) banner.hidden = true;
     if (btn && !state.loveBusy) {
       btn.disabled = false;
-      btn.textContent = '❤️ 1:1 애정 분석하기';
+      btn.textContent = '애정 분석';
     }
   }
 }
@@ -2082,13 +2185,13 @@ function setLoveBusy(busy, label) {
     btn.disabled = busy;
     if ($('love-sample')) $('love-sample').disabled = busy;
     if ($('love-file-btn')) $('love-file-btn').disabled = busy;
-    btn.textContent = busy ? (label || '애정도 정밀 분석 중…') : '❤️ 1:1 애정 분석하기 (무제한⚡)';
+    btn.textContent = busy ? (label || '분석 중…') : '애정 분석 (무제한)';
     return;
   }
 
   if (state.quotaExhausted) {
     btn.disabled = true;
-    btn.textContent = '오늘 무료 한도 마감 (초기화 대기 중)';
+    btn.textContent = '오늘 무료 한도 마감';
     return;
   }
 
@@ -2097,11 +2200,11 @@ function setLoveBusy(busy, label) {
   if ($('love-file-btn')) $('love-file-btn').disabled = busy;
 
   if (busy) {
-    btn.textContent = label || '애정도 정밀 분석 중…';
+    btn.textContent = label || '분석 중…';
   } else if (state.loveCooldownRemaining > 0) {
-    btn.textContent = `애정 분석 대기 중 (${formatTime(state.loveCooldownRemaining)})`;
+    btn.textContent = `대기 중 (${formatTime(state.loveCooldownRemaining)})`;
   } else {
-    btn.textContent = '❤️ 1:1 애정 분석하기';
+    btn.textContent = '애정 분석';
   }
 }
 
@@ -2110,14 +2213,14 @@ function renderLoveEmpty() {
   if (!body) return;
   body.replaceChildren(
     el('div', { class: 'state state--empty' }, [
-      el('h3', { text: '아직 판독한 1:1 대화가 없습니다' }),
+      el('h3', { text: '아직 분석한 1:1 대화가 없습니다' }),
       el('p', {
-        text: '왼쪽에 연인, 썸, 친구와의 대화를 넣고 "❤️ 1:1 애정 분석하기"를 누르세요. 두 사람의 캐릭터 프로필과 호감도 점수, 그리고 일별 · 월별 · 연도별 애정도 변화 추이 그래프를 정밀 분석합니다.',
+        text: '왼쪽에 대화를 입력하고 "애정 분석" 버튼을 누르세요. 두 사람의 감정 밸런스와 호감도 지수, 기간별 애정도 변화 추이를 분석합니다.',
       }),
       el('ul', { class: 'state__list' }, [
         el('li', {}, [el('span', { class: 'dot dot--high', attrs: { 'aria-hidden': 'true' } }), el('span', { text: '두 사람의 호감도 점수와 감정 밸런스 측정' })]),
         el('li', {}, [el('span', { class: 'dot dot--mid', attrs: { 'aria-hidden': 'true' } }), el('span', { text: '일별 / 월별 / 연도별 기간 설정 시계열 그래프' })]),
-        el('li', {}, [el('span', { class: 'dot dot--none', attrs: { 'aria-hidden': 'true' } }), el('span', { text: '대표 설렘 대사 & 갈등 예방 AI 코칭' })]),
+        el('li', {}, [el('span', { class: 'dot dot--none', attrs: { 'aria-hidden': 'true' } }), el('span', { text: '대화 속 호감 신호 및 상호작용 분석' })]),
       ]),
     ]),
   );
@@ -2172,15 +2275,20 @@ async function analyzeLove() {
     }
   }
 
-  const conversation = $('love-chat')?.value.trim() || '';
-  if (conversation.length < 20) {
+  const rawConversation = $('love-chat')?.value.trim() || '';
+  if (rawConversation.length < 20) {
     renderLoveError('대화 내용이 너무 짧습니다. 최소 몇 줄 이상의 대화를 넣어 주세요.');
     return;
   }
 
-  setLoveBusy(true, '1:1 대화 정밀 스캔 중…');
+  const { text: conversation, maskedCount } = sanitizeClientPII(rawConversation);
+  if (maskedCount > 0) {
+    showToast(`개인정보(${maskedCount}건: 전화번호/계좌/주소 등)가 감지되어 안전하게 자동 마스킹 처리되었습니다.`, 4000);
+  }
+
+  setLoveBusy(true, '1:1 대화 분석 중…');
   renderLoveLoading(
-    '1:1 대화 속 감정과 호감도를 스캔하는 중입니다…',
+    '1:1 대화 속 감정과 호감도를 분석하는 중입니다…',
     '두 사람의 호칭, 리액션 빈도, 감정 밸런스 및 기간별 애정도 추이를 산출하고 있습니다.',
   );
   scrollToResults('love-results');
@@ -2225,7 +2333,7 @@ async function analyzeLove() {
     }
 
     renderLoveResults(payload);
-    showToast('❤️ 1:1 애정 분석이 성공적으로 완료되었습니다!');
+    showToast('1:1 애정 분석이 완료되었습니다.');
   } catch (err) {
     renderLoveError('분석 중 오류가 발생했습니다.', err.message);
   } finally {
@@ -2250,10 +2358,10 @@ function renderLoveResults(data, isShared = false) {
   if (isShared) {
     const banner = el('div', { class: 'shared-result-banner' }, [
       el('div', { class: 'shared-result-banner__content' }, [
-        el('span', { class: 'shared-result-banner__icon', text: '💌' }),
+        el('span', { class: 'shared-result-banner__icon' }, [createLoveSvg()]),
         el('div', {}, [
-          el('strong', { text: '친구가 공유한 1:1 애정 분석 결과입니다' }),
-          el('p', { text: `${charA.name} ❤️ ${charB.name}의 호감도 지수와 감정 분석 결과입니다. (초대 혜택 5분 단축 적용됨 ⚡)` }),
+          el('strong', { text: '공유받은 1:1 애정 분석 결과입니다' }),
+          el('p', { text: `${charA.name} & ${charB.name}의 호감도 지수와 감정 분석 결과입니다. (초대 혜택 5분 단축 적용)` }),
         ]),
       ]),
       el('button', {
@@ -2350,7 +2458,7 @@ function renderLoveResults(data, isShared = false) {
   const chartCard = el('div', { class: 'love-chart-card', id: 'love-chart-card' });
   const chartHead = el('div', { class: 'love-chart-head' }, [
     el('div', { class: 'love-chart-head__info' }, [
-      el('h3', { text: '📈 애정도 시계열 변화 그래프' }),
+      el('h3', { text: '애정도 시계열 변화 그래프' }),
       el('p', { text: '대화의 흐름 속에서 두 사람의 애정도가 어떻게 변화했는지 기간별로 스캔합니다.' }),
     ]),
     el('div', { class: 'love-chart-controls' }, [
@@ -2421,7 +2529,7 @@ function renderLoveResults(data, isShared = false) {
   if (flutterPoints.length) {
     const flutterBox = el('div', { class: 'love-detail-box love-detail-box--flutter' }, [
       el('div', { class: 'love-detail-box__head' }, [
-        el('span', { text: '💖 대화 속 설렘 & 호감 모먼트' }),
+        el('span', { text: '대화 속 호감 & 긍정 시그널' }),
       ]),
       el('ul', {}, flutterPoints.map((item) => el('li', { text: item }))),
     ]);
@@ -2433,7 +2541,7 @@ function renderLoveResults(data, isShared = false) {
   if (cautionPoints.length) {
     const cautionBox = el('div', { class: 'love-detail-box love-detail-box--caution' }, [
       el('div', { class: 'love-detail-box__head' }, [
-        el('span', { text: '⚠️ 주의할 점 & 갈등 예방 팁' }),
+        el('span', { text: '대화 패턴 분석 및 유의점' }),
       ]),
       el('ul', {}, cautionPoints.map((item) => el('li', { text: item }))),
     ]);
@@ -2447,7 +2555,7 @@ function renderLoveResults(data, isShared = false) {
   // 5. AI 총평 박스
   if (data.overallVerdict) {
     const verdictBox = el('div', { class: 'love-verdict-box' }, [
-      el('h4', {}, [el('span', { text: '⚡ 톡스캐너 관계 분석 총평' })]),
+      el('h4', {}, [el('span', { text: '관계 분석 종합 리포트' })]),
       el('p', { text: data.overallVerdict }),
     ]);
     container.appendChild(verdictBox);
@@ -2458,13 +2566,13 @@ function renderLoveResults(data, isShared = false) {
   const shareBtn = el('button', {
     type: 'button',
     class: 'btn btn--primary btn--love',
-    text: '🔗 애정 분석 결과 공유하고 쿨다운 5분 단축하기',
+    text: '애정 분석 결과 공유 (5분 단축 링크)',
   });
   shareBtn.addEventListener('click', async () => {
     try {
       const shareData = {
         type: 'love',
-        title: `${charA.name} ❤️ ${charB.name} 1:1 애정도 분석`,
+        title: `${charA.name} & ${charB.name} 1:1 애정도 분석`,
         data,
       };
       const res = await fetch('/api/referral/create', {
@@ -2476,12 +2584,12 @@ function renderLoveResults(data, isShared = false) {
       const code = refData?.code || '';
       const base = `${window.location.origin}${window.location.pathname}`;
       const shareUrl = code ? `${base}?ref=${code}` : base;
-      const shareText = `[톡스캐너] ${charA.name} ❤️ ${charB.name} 1:1 애정도 분석 결과 (${data.overallAffectionScore}%)\n${shareUrl}`;
+      const shareText = `[톡스캐너] ${charA.name} & ${charB.name} 1:1 애정도 분석 결과 (${data.overallAffectionScore}%)\n${shareUrl}`;
 
       if (navigator.share && typeof navigator.share === 'function') {
         try {
           await navigator.share({
-            title: `[톡스캐너] ${charA.name} ❤️ ${charB.name} 1:1 애정도 분석`,
+            title: `[톡스캐너] ${charA.name} & ${charB.name} 1:1 애정도 분석`,
             text: shareText,
             url: shareUrl,
           });
@@ -2494,7 +2602,7 @@ function renderLoveResults(data, isShared = false) {
 
       const copied = await copyToClipboard(shareText, '아래 1:1 애정 분석 결과를 복사하여 공유하세요:');
       if (copied) {
-        showToast('🎉 애정 분석 결과와 초대 링크가 복사되었습니다! 친구가 접속 시 대기 시간이 5분 단축됩니다. ⚡');
+        showToast('애정 분석 결과와 초대 링크가 복사되었습니다. 친구 접속 시 대기 시간이 5분 단축됩니다.');
       } else {
         showToast('링크: ' + shareUrl);
       }
@@ -2646,10 +2754,10 @@ function buildLoveSvg(data, filter, charA, charB, tooltip) {
       tooltip.hidden = false;
       const note = pt.event || pt.summary || '';
       tooltip.innerHTML = `
-        <strong>📅 ${pt.date}</strong>
+        <strong>${pt.date}</strong>
         <div>${charA.name}: <b style="color:#f43f5e">${pt.scoreA ?? 60}%</b></div>
         <div>${charB.name}: <b style="color:#38bdf8">${pt.scoreB ?? 60}%</b></div>
-        ${note ? `<div style="margin-top:4px;color:#cbd5e1;font-size:10px;">💬 ${note}</div>` : ''}
+        ${note ? `<div style="margin-top:4px;color:#cbd5e1;font-size:10px;">${note}</div>` : ''}
       `;
       const pctX = (x / svgW) * 100;
       const pctY = ((Math.min(yA, yB) - 10) / svgH) * 100;
@@ -2742,8 +2850,8 @@ async function loadLoveFile(file) {
       const originalMb = (file.size / 1024 / 1024).toFixed(1);
       if (isLarge) {
         const charsText = `${Math.round(text.length / 10000)}만 자`;
-        info.textContent = `⚡ 대용량 파일(${originalMb}MB): 최신 대화(약 2.5MB / ${charsText})를 자동 발췌하여 로드했습니다.`;
-        showToast(`⚡ ${originalMb}MB 대용량 파일에서 최신 대화(약 ${charsText})를 자동으로 발췌했습니다!`);
+        info.textContent = `대용량 파일(${originalMb}MB): 최신 대화(약 2.5MB / ${charsText})를 자동 발췌하여 로드했습니다.`;
+        showToast(`${originalMb}MB 대용량 파일에서 최신 대화(약 ${charsText})를 자동으로 발췌했습니다.`);
       } else {
         info.textContent = `불러온 파일: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`;
       }

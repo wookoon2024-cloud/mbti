@@ -7,6 +7,7 @@ import {
   RETRY_REMINDER,
 } from './prompt.js';
 import { logAnalyze, saveRawResponse } from './logger.js';
+import { tokenizeConversation, detokenizeObject } from './sanitize.js';
 
 const MAX_INPUT_CHARS = 200_000;
 const REQUEST_TIMEOUT_MS = Number(process.env.ANALYZE_TIMEOUT_MS) || 120_000;
@@ -287,6 +288,8 @@ export function parseKakaoSpeakers(text) {
     .sort((a, b) => b.messageCount - a.messageCount);
 }
 
+export const extractSpeakersFast = parseKakaoSpeakers;
+
 export function sampleConversationForSpeakers(text, maxChars = 15_000) {
   if (text.length <= maxChars) return text;
   const lines = text.split(/\r?\n/);
@@ -521,16 +524,32 @@ export async function analyzePerson({ conversation, person, apiKey, model, wire 
   // 대용량 대화(6만자+)에서도 타임아웃 없이 빠르고 정확하게 분석할 수 있도록 대상 인물 발화 중심 압축
   const filteredText = filterConversationForPerson(text, target.name, 12_000, target.aliases);
 
+  // 1. 화자 가명화(Tokenization): AI API로 실명이 절대 전송되지 않도록 [참여자1], [참여자2] 등으로 치환
+  const allSpeakers = extractSpeakersFast(filteredText);
+  const speakerList = [
+    { name: target.name, aliases: target.aliases },
+    ...allSpeakers.filter((s) => s.name !== target.name),
+  ];
+  const { tokenizedText, tokenMap, reverseMap } = tokenizeConversation(filteredText, speakerList);
+
+  const tokenizedTarget = {
+    name: tokenMap.get(target.name) || '화자1',
+    aliases: (target.aliases || []).map((a) => tokenMap.get(a) || a),
+  };
+
   const json = await requestJson({
     apiKey,
     model,
     wire,
     system: PERSON_SYSTEM_PROMPT,
-    user: buildPersonPrompt(filteredText, target),
-    label: `person:${target.name}`,
+    user: buildPersonPrompt(tokenizedText, tokenizedTarget),
+    label: `person:${tokenizedTarget.name}`,
   });
 
-  const result = normalizePerson(json, target.name);
+  // 2. 역매핑(De-tokenization): AI가 반환한 JSON 내의 [참여자1], [참여자2] 토큰을 원래 이름으로 100% 복원
+  const detokenizedJson = detokenizeObject(json, reverseMap);
+
+  const result = normalizePerson(detokenizedJson, target.name);
   result.meta = { inputCharacters: text.length, analyzedCharacters: filteredText.length, truncated };
   return result;
 }
