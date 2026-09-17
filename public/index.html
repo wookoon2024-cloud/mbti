@@ -26,15 +26,63 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand__mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="#ffffff" fill-opacity="0.2" stroke="#ffffff" />
-            <circle cx="8.5" cy="10" r="1" fill="#ffffff" stroke="none" />
-            <circle cx="12" cy="10" r="1" fill="#ffffff" stroke="none" />
-            <circle cx="15.5" cy="10" r="1" fill="#ffffff" stroke="none" />
+          <svg viewBox="0 0 44 44" width="26" height="26" fill="none" focusable="false">
+            <defs>
+              <linearGradient id="scouterLens" x1="14" y1="12" x2="38" y2="30" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#7aff8f" stop-opacity="0.95" />
+                <stop offset="50%" stop-color="#00e676" stop-opacity="0.88" />
+                <stop offset="100%" stop-color="#00ab55" stop-opacity="0.95" />
+              </linearGradient>
+              <linearGradient id="scouterBody" x1="6" y1="14" x2="19" y2="29" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#f8fafc" />
+                <stop offset="50%" stop-color="#e2e8f0" />
+                <stop offset="100%" stop-color="#94a3b8" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M10.5 21 C9.5 9.5, 23 4, 33 6.8 C34 7.1, 34 8.2, 33 8.6 C24.5 6.2, 12.8 11.5, 13.5 21 Z"
+              fill="#475569"
+            />
+            <path
+              d="M31.5 6.5 C34 7, 34.5 8.5, 33 9"
+              stroke="#64748b"
+              stroke-width="1.2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M17.5 16.2 L34.2 13.6 C37.8 13 40.5 15.2 40.2 19 L39.6 23.5 C39 27.5, 35.5 30.2, 31 29.8 L18 27.5 Z"
+              fill="url(#scouterLens)"
+              stroke="#a7f3d0"
+              stroke-width="0.8"
+            />
+            <circle cx="32" cy="21.5" r="3.2" stroke="#ffffff" stroke-opacity="0.8" stroke-width="0.75" stroke-dasharray="2 1.2" />
+            <circle cx="32" cy="21.5" r="1.1" fill="#ffffff" fill-opacity="0.95" />
+            <line x1="22.5" y1="18.5" x2="26" y2="18.5" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
+            <line x1="22.5" y1="21.2" x2="27" y2="21.2" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
+            <line x1="22.5" y1="24" x2="25" y2="24" stroke="#ffffff" stroke-opacity="0.75" stroke-width="0.8" stroke-linecap="round" />
+            <path
+              d="M18.8 17.5 L34.5 15 C37 14.6 38.5 15.6 38.6 17.5"
+              stroke="#ffffff"
+              stroke-width="1"
+              stroke-linecap="round"
+            />
+            <path
+              d="M6.5 22 C6 16.5, 11 13.8, 16 14.2 L17.5 29 C11.5 29.8, 6.8 26.8, 6.5 22 Z"
+              fill="#94a3b8"
+            />
+            <path
+              d="M7.8 22 C7.5 17.2, 12 14.8, 17 15.2 L18.5 28.5 C13 29, 8 26.5, 7.8 22 Z"
+              fill="url(#scouterBody)"
+            />
+            <circle cx="12.5" cy="22" r="3.2" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.6" />
+            <circle cx="12.5" cy="22" r="1.3" fill="#64748b" />
+            <rect x="16.5" y="16.5" width="3.2" height="10" rx="1" fill="#1e293b" />
+            <rect x="17.2" y="19.2" width="2" height="4.2" rx="0.6" fill="#ef4444" />
+            <rect x="17.6" y="19.8" width="1.2" height="1.5" rx="0.3" fill="#fca5a5" />
           </svg>
         </span>
         <div class="brand__text">
-          <span class="brand__name">톡스캐너</span>
+          <span class="brand__name">톡<span>스캐너</span></span>
           <span class="version-tag">Beta</span>
         </div>
       </div>
@@ -440,75 +488,39 @@
       <div class="modal-card">
         <div class="modal-card__header">
           <div class="modal-card__badge">
-            <span>이용 안내</span>
+            <span class="modal-card__badge-icon" aria-hidden="true">⚡</span>
+            <span>톡스캐너 핵심 안내</span>
           </div>
           <button type="button" class="modal-card__close" id="intro-close-x" aria-label="닫기">✕</button>
         </div>
         <div class="modal-card__body">
-          <h3 class="modal-card__title">톡스캐너 이용 가이드</h3>
+          <h3 class="modal-card__title">빠르고 안전한 대화 분석</h3>
           <p class="modal-card__subtitle">
-            대화 속 인물들의 성향과 1:1 애정도를 실시간 분석합니다.
+            입력하신 대화는 분석 즉시 메모리에서 안전하게 영구 파기됩니다.
           </p>
 
           <div class="modal-guide-list">
-            <div class="guide-item guide-item--beta">
-              <div class="guide-item__icon-box">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
-                </svg>
-              </div>
-              <div class="guide-item__content">
-                <strong>공지: 현재 사이트 테스트 및 개발 진행 중</strong>
-                <ul class="guide-item__bullets">
-                  <li>정확도 향상 및 서비스 안정화를 위해 현재 <strong>테스트 개발(Beta)</strong> 중입니다.</li>
-                  <li>이용 중 일시적인 개선 패치나 화면 갱신이 발생할 수 있습니다.</li>
-                </ul>
-              </div>
-            </div>
-
             <div class="guide-item guide-item--highlight">
-              <div class="guide-item__icon-box">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                </svg>
-              </div>
+              <span class="guide-item__icon" aria-hidden="true">🛡️</span>
               <div class="guide-item__content">
-                <strong>개인정보 철저 보호 및 데이터 미저장 (안심 보증)</strong>
-                <ul class="guide-item__bullets">
-                  <li>전화번호, 계좌, 주소 등 개인정보 실시간 자동 비식별 마스킹</li>
-                  <li>서버 DB·파일 미저장 & AI 모델 학습 절대 배제(Zero-Retention)</li>
-                </ul>
+                <strong>개인정보 철저 보호 & 미저장 (Zero-Retention)</strong>
+                <p>전화번호·계좌 등 실시간 마스킹 처리, 서버 및 DB 미저장</p>
               </div>
             </div>
 
             <div class="guide-item">
-              <div class="guide-item__icon-box">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
-                </svg>
-              </div>
+              <span class="guide-item__icon" aria-hidden="true">⏱️</span>
               <div class="guide-item__content">
-                <strong>이용 주기 및 쿨다운 단축</strong>
-                <ul class="guide-item__bullets">
-                  <li>무료 모드 10분마다 1회 분석 가능 (하루 10회)</li>
-                  <li>결과 공유 링크로 친구 방문 시 <strong>쿨다운 5분 즉시 단축</strong></li>
-                  <li>개인 API 키 등록 시 <strong>쿨다운 없이 무제한 이용</strong></li>
-                </ul>
+                <strong>10분 무료 쿨다운 & 친구 초대 혜택</strong>
+                <p>무료 10분 주기 이용, 공유 링크로 친구 방문 시 5분 즉시 단축</p>
               </div>
             </div>
 
             <div class="guide-item">
-              <div class="guide-item__icon-box">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
-                </svg>
-              </div>
+              <span class="guide-item__icon" aria-hidden="true">💬</span>
               <div class="guide-item__content">
-                <strong>2가지 특화 분석 모드</strong>
-                <ul class="guide-item__bullets">
-                  <li><strong>단톡방 성향분석</strong>: 단체방 참여자(최대 4명) 동시 성향 판독</li>
-                  <li><strong>1:1 애정 분석</strong>: 두 사람의 호감도 및 기간별 시계열 그래프</li>
-                </ul>
+                <strong>2가지 특화 분석 모드 제공</strong>
+                <p>단톡방 참여자 MBTI 성향 판독 & 1:1 관계·호감도 시계열 분석</p>
               </div>
             </div>
           </div>
@@ -518,7 +530,7 @@
             <input type="checkbox" id="intro-dismiss-today" />
             <span>오늘 하루 이 안내 보지 않기</span>
           </label>
-          <button type="button" class="btn btn--primary" id="intro-confirm-btn">확인</button>
+          <button type="button" class="btn btn--primary btn--sm" id="intro-confirm-btn">확인했습니다</button>
         </div>
       </div>
     </dialog>
